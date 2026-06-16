@@ -1,10 +1,33 @@
-from .config import get_settings
+from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.vector_stores.chroma import ChromaVectorStore
 
-# 检索（阶段三实现）。从已持久化的 Chroma + docstore 重建 VectorStoreIndex，
-# 不重新 embedding，返回 top_k chunk（含 text 与 source_url / title）。
+from .config import get_settings
+from .embed_client import get_embed_model
+from .indexer import _load_docstore, get_chroma_collection
 
 
 def retrieve(question: str) -> list[dict]:
-    """按问题召回相关 chunk。返回 [{text, title, source_url}, ...]。"""
-    settings = get_settings()  # noqa: F841  阶段三使用 similarity_top_k 等
-    raise NotImplementedError("检索将在阶段三实现")
+    settings = get_settings()
+    collection = get_chroma_collection()
+    if collection.count() == 0:
+        return []
+
+    storage_context = StorageContext.from_defaults(
+        vector_store=ChromaVectorStore(chroma_collection=collection),
+        docstore=_load_docstore(settings.docstore_path),
+    )
+    index = VectorStoreIndex(
+        nodes=[],
+        storage_context=storage_context,
+        embed_model=get_embed_model(),
+    )
+    retriever = index.as_retriever(similarity_top_k=settings.similarity_top_k)
+
+    return [
+        {
+            "text": result.node.text,
+            "title": result.node.metadata.get("title", ""),
+            "source_url": result.node.metadata.get("source_url"),
+        }
+        for result in retriever.retrieve(question)
+    ]
