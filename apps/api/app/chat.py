@@ -1,25 +1,32 @@
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
 
+from .config import get_settings
 from .errors import AppError
 from .llm_client import stream_chat
 from .models import ChatRequest, ErrorResponse
 from .prompt_templates import build_messages
+from .retriever import retrieve
 
 logger = logging.getLogger("api")
 
 
 def _sse(payload: dict) -> str:
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\\n\\n"
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
 
 async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
     history = [message.model_dump() for message in req.history]
-    contexts: list[dict] = []
-    messages = build_messages(req.question, contexts, history)
+    settings = get_settings()
 
     try:
+        if settings.llm_mock or not settings.llm_api_key:
+            contexts: list[dict] = []
+        else:
+            contexts = await asyncio.to_thread(retrieve, req.question)
+        messages = build_messages(req.question, contexts, history)
         async for token in stream_chat(messages):
             yield _sse({"delta": token})
     except AppError as exc:
@@ -49,5 +56,13 @@ async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
         )
         return
 
-    sources = [{"title": context.get("title", ""), "source_url": context.get("source_url")} for context in contexts]
+    seen_source_urls: set[str | None] = set()
+    sources = []
+    for context in contexts:
+        source_url = context.get("source_url")
+        if source_url in seen_source_urls:
+            continue
+        seen_source_urls.add(source_url)
+        sources.append({"title": context.get("title", ""), "source_url": source_url})
+
     yield _sse({"done": True, "sources": sources})
