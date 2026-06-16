@@ -1,0 +1,13 @@
+# ---- Web 框架 ----
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic-settings==2.7.1
+httpx==0.28.1
+
+# ---- RAG：LlamaIndex 0.14.x 拆包架构 ----
+llama-index-core==0.14.13
+llama-index-vector-stores-chroma==0.5.4
+llama-index-embeddings-openai==0.5.1
+
+# ---- 向量库（嵌入式持久化）----
+chromadb==1.0.20

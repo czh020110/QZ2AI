@@ -1,0 +1,35 @@
+.claude/
+.claude_introduction/
+
+# 密钥：真实 .env 只在服务器，绝不进仓库
+.env
+*.env
+!.env.example
+
+# 运行时数据：与代码分离，单独挂载
+data/notes/*
+data/chroma/*
+data/logs/*
+!data/notes/.gitkeep
+!data/chroma/.gitkeep
+!data/logs/.gitkeep
+# 开发期示例笔记保留入仓，供 Quartz/索引开发
+!data/notes/examples/
+# 首页落地页（开发期示例首页，供 / 路由有内容）
+!data/notes/index.md
+
+# Python
+apps/api/__pycache__/
+apps/api/**/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node / Quartz
+apps/web/node_modules/
+apps/web/public/
+apps/web/.quartz-cache/
+
+# 杂项
+*.log
+.DS_Store
