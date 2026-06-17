@@ -19,6 +19,12 @@ type ChatEvent =
 
 const ROOT_ID = "ai-chat-widget-root"
 
+const registerCleanup = (cleanup: () => void) => {
+  if (typeof window.addCleanup === "function") {
+    window.addCleanup(cleanup)
+  }
+}
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, "&amp;")
@@ -33,8 +39,15 @@ const createId = () =>
     : `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 function mountAIChatWidget() {
-  const root = document.getElementById(ROOT_ID)
-  if (!root || root.dataset.mounted === "true") return
+  let root = document.getElementById(ROOT_ID) as HTMLDivElement | null
+  if (!root) {
+    root = document.createElement("div")
+    root.id = ROOT_ID
+    document.body.appendChild(root)
+  }
+
+  root.classList.add("ai-chat-widget-root")
+  if (root.dataset.mounted === "true") return
   root.dataset.mounted = "true"
 
   let isOpen = false
@@ -342,11 +355,11 @@ function mountAIChatWidget() {
   textarea.addEventListener("keydown", handleKeydown)
   form.addEventListener("submit", handleSubmit)
 
-  window.addCleanup(() => launcher.removeEventListener("click", openPanel))
-  window.addCleanup(() => closeButton.removeEventListener("click", closePanel))
-  window.addCleanup(() => form.removeEventListener("submit", handleSubmit))
-  window.addCleanup(() => textarea.removeEventListener("input", handleInput))
-  window.addCleanup(() => textarea.removeEventListener("keydown", handleKeydown))
+  registerCleanup(() => launcher.removeEventListener("click", openPanel))
+  registerCleanup(() => closeButton.removeEventListener("click", closePanel))
+  registerCleanup(() => form.removeEventListener("submit", handleSubmit))
+  registerCleanup(() => textarea.removeEventListener("input", handleInput))
+  registerCleanup(() => textarea.removeEventListener("keydown", handleKeydown))
 
   syncUI()
 }
@@ -356,5 +369,4 @@ function initialize() {
 }
 
 document.addEventListener("nav", initialize)
-window.addCleanup(() => document.removeEventListener("nav", initialize))
-initialize()
+document.addEventListener("render", initialize)
