@@ -21,6 +21,8 @@ RUN npm ci
 # 一次性装好并焊进镜像，runtime 阶段就不再需要 git / 访问 github（自包含、可移植）。
 # 配置用项目自带 quartz.config.yaml（基于默认配置改 baseUrl/pageTitle）。
 COPY quartz.config.yaml ./quartz.config.yaml
+COPY quartz.ts ./quartz.ts
+COPY quartz ./quartz
 RUN npx quartz plugin install --from-config
 
 # ---------- 阶段二：运行时镜像 ----------
