@@ -143,36 +143,37 @@ def update_config(
     if not updated_keys:
         return {"status": "ok", "updated": [], "message": "无变更"}
 
-    # 加文件锁读写 .env，防止并发写入竞态
+    # 加文件锁读写 .env，防止并发写入竞态（读取和写入在同一个锁内）
     with open(env_path, "a+") as f:
         f.seek(0)
         fcntl.flock(f, fcntl.LOCK_EX)
         try:
             raw_lines = f.readlines()
+
+            lines: list[str] = []
+            written_keys: set[str] = set()
+            for line in raw_lines:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    lines.append(line.rstrip("\n"))
+                    continue
+                if "=" in stripped:
+                    k = stripped.split("=", 1)[0].strip()
+                    if k in existing:
+                        lines.append(f"{k}={existing[k]}")
+                        written_keys.add(k)
+                        continue
+                lines.append(line.rstrip("\n"))
+
+            for k, v in existing.items():
+                if k not in written_keys:
+                    lines.append(f"{k}={v}")
+
+            f.seek(0)
+            f.truncate()
+            f.write("\n".join(lines) + "\n")
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
-
-    lines: list[str] = []
-    written_keys: set[str] = set()
-    for line in raw_lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            lines.append(line.rstrip("\n"))
-            continue
-        if "=" in stripped:
-            k = stripped.split("=", 1)[0].strip()
-            if k in existing:
-                lines.append(f"{k}={existing[k]}")
-                written_keys.add(k)
-                continue
-        lines.append(line.rstrip("\n"))
-
-    for k, v in existing.items():
-        if k not in written_keys:
-            lines.append(f"{k}={v}")
-
-    with open(env_path, "w") as f:
-        f.write("\n".join(lines) + "\n")
 
     return {
         "status": "ok",

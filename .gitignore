@@ -10,6 +10,8 @@
 data/notes/*
 data/chroma/*
 data/logs/*
+data/docstore.json
+data/blog.db
 !data/notes/.gitkeep
 !data/chroma/.gitkeep
 !data/logs/.gitkeep

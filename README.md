@@ -583,3 +583,82 @@ scripts/deploy.sh
 > **基于 Quartz 的 Obsidian 静态博客 + 基于 FastAPI/LlamaIndex/Chroma 的 RAG 问答后端 + Docker Compose 部署的单机轻量知识站。**
 
 它完全适合你当前的服务器规格，也适合作为后续共享给他人使用的可复用模板。
+
+---
+
+## 20. 快速部署
+
+### 前置条件
+
+- Docker & Docker Compose
+- 至少 2GB 可用磁盘（构建镜像 + 向量数据）
+- 建议增加 Swap（4GB），embedding 构建时有内存峰值
+
+### 步骤
+
+1. **克隆仓库**
+
+   ```bash
+   git clone <repo-url> && cd Blog
+   ```
+
+2. **配置环境变量**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   编辑 `.env`，必须填入：
+
+   | 变量 | 说明 |
+   |------|------|
+   | `LLM_API_KEY` | LLM API 密钥（OpenAI 兼容） |
+   | `EMBEDDING_API_KEY` | Embedding API 密钥 |
+   | `REINDEX_TOKEN` | 索引重建接口保护 token（留空则拒绝调用） |
+   | `ADMIN_TOKEN` | 管理后台接口保护 token（留空则拒绝调用） |
+
+   如使用阿里云百炼 Embedding/Reranker，按 `.env.example` 注释填写对应 `EMBEDDING_*` / `RERANK_*` 变量。
+
+3. **准备笔记内容**
+
+   将 Markdown 笔记放入 `data/notes/` 目录（支持子目录）：
+
+   ```bash
+   mkdir -p data/notes
+   # 将 .md 文件复制或同步到此目录
+   ```
+
+4. **启动服务**
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+   首次启动会构建镜像，耗时约 3-5 分钟。
+
+5. **构建索引**
+
+   服务启动后调用一次索引重建：
+
+   ```bash
+   curl -X POST "http://localhost:18088/api/reindex" \
+     -H "Authorization: Bearer <你的REINDEX_TOKEN>"
+   ```
+
+   返回 `{"status":"ok",...}` 即成功。
+
+6. **访问**
+
+   | 地址 | 说明 |
+   |------|------|
+   | `http://<IP>:18088/` | 博客首页 |
+   | `http://<IP>:18088/admin/` | 管理后台（需 ADMIN_TOKEN） |
+
+   博客页面右下角的 AI 助手浮窗可直接问答。
+
+### 常用操作
+
+- **更新笔记后重建索引**：再次调用 `/api/reindex`（增量更新，非全量重建）
+- **查看管理后台**：访问 `/admin/`，输入 ADMIN_TOKEN 登录，可管理反馈和修改环境配置
+- **查看日志**：`docker compose logs -f api`
+- **重启 API**：`docker compose restart api`

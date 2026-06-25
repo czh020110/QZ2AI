@@ -1,6 +1,7 @@
 import json
 import logging
 from collections.abc import AsyncIterator
+from contextvars import ContextVar
 from functools import lru_cache
 
 from llama_index.core.agent.workflow import (
@@ -25,8 +26,8 @@ logger = logging.getLogger("api")
 
 MOCK_CHUNKS = ["（MOCK）", "后端骨架已就绪，", "Agent 链路已接入。"]
 
-# 当前请求的检索来源（在 search_blog_notes 工具中写入，在 SSE 层读取）
-_current_sources: list[dict] = []
+# 当前请求的检索来源（协程隔离，替代模块级全局变量避免并发竞态）
+_current_sources: ContextVar[list[dict]] = ContextVar("_current_sources", default=[])
 
 
 def _sse(payload: dict) -> str:
@@ -40,10 +41,9 @@ def _build_rag_tool():
         参数说明：
         - query: 搜索查询，应提取用户问题中的核心关键词
         """
-        global _current_sources
         contexts = retrieve(query)
         if not contexts:
-            _current_sources = []
+            _current_sources.set([])
             return "未找到相关博客内容。"
         content_block = "\n\n".join(
             f"[来源:{c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
@@ -55,7 +55,7 @@ def _build_rag_tool():
             if url and url not in seen_urls:
                 seen_urls.add(url)
                 deduped.append({"title": c.get("title", ""), "source_url": url})
-        _current_sources = deduped
+        _current_sources.set(deduped)
         return content_block
 
     return FunctionTool.from_defaults(
@@ -89,7 +89,6 @@ _ROLE_MAP = {"user": MessageRole.USER, "assistant": MessageRole.ASSISTANT}
 
 
 async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
-    global _current_sources
     settings = get_settings()
     page_ctx = req.page_context
 
@@ -108,7 +107,7 @@ async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
             ChatMessage(role=_ROLE_MAP.get(m.role, MessageRole.USER), content=m.content)
             for m in req.history
         ]
-        _current_sources = []
+        _current_sources.set([])
 
         agent = _get_agent()
         handler = agent.run(user_msg=user_msg, chat_history=chat_history)
@@ -149,4 +148,4 @@ async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
         )
         return
 
-    yield _sse({"done": True, "sources": _current_sources})
+    yield _sse({"done": True, "sources": _current_sources.get()})
