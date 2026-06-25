@@ -33,7 +33,7 @@ function mountAIChatWidget() {
         <header class="ai-chat-widget__header">
           <div>
             <div class="ai-chat-widget__header-title">AI 问答</div>
-            <div class="ai-chat-widget__header-subtitle">基于当前博客内容回答，并附来源链接</div>
+            <div class="ai-chat-widget__header-subtitle">基于当前博客内容回答问题，也可直接提交反馈哦</div>
           </div>
           <button type="button" class="ai-chat-widget__close" aria-label="关闭">&times;</button>
         </header>
@@ -69,7 +69,7 @@ function mountAIChatWidget() {
 
   const renderMessages = () => {
     if (messages.length === 0) {
-      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">基于当前博客内容回答，并附来源链接</div>`
+      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">基于当前博客内容回答问题，也可直接提交反馈哦</div>`
       return
     }
     messagesEl.innerHTML = messages

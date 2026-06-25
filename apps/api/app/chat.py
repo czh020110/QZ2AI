@@ -13,7 +13,7 @@ from llama_index.core.agent.workflow import (
 )
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 from llama_index.core.tools import FunctionTool
-from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
 from .config import get_settings
 from .errors import AppError
@@ -72,11 +72,14 @@ def _build_feedback_tool():
 @lru_cache
 def _get_agent() -> FunctionAgent:
     settings = get_settings()
-    llm = OpenAI(
+    llm = OpenAILike(
         model=settings.llm_model,
         api_base=settings.llm_base_url,
         api_key=settings.llm_api_key,
         temperature=0.7,
+        context_window=128000,
+        is_chat_model=True,
+        is_function_calling_model=True,
     )
     return FunctionAgent(
         tools=[_build_rag_tool(), _build_feedback_tool()],
@@ -118,7 +121,9 @@ async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
                     yield _sse({"delta": event.delta})
             elif isinstance(event, ToolCallResult):
                 if event.tool_name == "submit_feedback" and event.tool_output:
-                    yield _sse({"delta": event.tool_output})
+                    output = str(event.tool_output)
+                    if output:
+                        yield _sse({"delta": output})
 
         await handler
 

@@ -29,6 +29,7 @@ services:
     restart: "no"
 
   # 唯一对外入口：/ 托管 public 卷静态产物，/api 反代 api 服务。
+  # 启动前等待 web 构建产物就绪，避免挂载空卷。
   nginx:
     image: nginx:1.27-alpine
     ports:
@@ -38,9 +39,12 @@ services:
       - ./nginx/proxy_common.conf:/etc/nginx/proxy_common.conf:ro
       - public:/usr/share/nginx/html:ro
       - ./apps/admin:/usr/share/nginx/admin:ro
+      - ./nginx/wait-for-public.sh:/docker-entrypoint.d/40-wait-for-public.sh:ro
     depends_on:
-      - api
-      - web
+      api:
+        condition: service_healthy
+      web:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

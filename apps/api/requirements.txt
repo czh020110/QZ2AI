@@ -7,8 +7,9 @@ httpx==0.28.1
 # ---- RAG：LlamaIndex 0.14.x 拆包架构 ----
 llama-index-core==0.14.13
 llama-index-vector-stores-chroma==0.5.4
-llama-index-embeddings-openai==0.5.1
-llama-index-llms-openai==0.5.2
+llama-index-embeddings-openai==0.6.0
+llama-index-llms-openai==0.7.9
+llama-index-llms-openai-like==0.7.2
 
 # ---- 百炼原生 API ----
 dashscope>=1.24.0
