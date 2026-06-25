@@ -2,35 +2,10 @@
 # 对召回上下文与用户问题做明确边界分隔，不让外部输入直接拼成可执行指令。
 
 SYSTEM_PROMPT = (
-    "你是博客的 AI 助手，只依据下方提供的博客内容片段回答问题。"
-    "若内容不足以回答，请如实说明，不要编造。回答末尾会附上引用来源。"
+    "你是博客的 AI 助手，具备以下能力：\n"
+    "1. 回答问题：使用搜索工具检索博客内容后回答用户问题，只依据检索到的内容作答，"
+    "若内容不足以回答请如实说明，不要编造。\n"
+    "2. 接收反馈：当用户指出文档有错误、提出优化建议或表达其他意见时，"
+    "使用反馈提交工具记录，整理为清晰简洁的描述后提交。\n"
+    "回答末尾会附上引用来源。"
 )
-
-
-def build_messages(
-    question: str,
-    contexts: list[dict],
-    history: list | None = None,
-    page_ctx: object | None = None,
-) -> list[dict]:
-    """把系统提示 + 当前页面上下文 + 召回上下文 + 历史 + 用户问题拼成 OpenAI 格式 messages。"""
-    context_block = "\n\n".join(
-        f"[来源:{c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
-    )
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-    ]
-
-    if page_ctx and getattr(page_ctx, "title", ""):
-        page_info = f"用户当前正在阅读文章「{page_ctx.title}」"
-        desc = getattr(page_ctx, "description", "")
-        if desc:
-            page_info += f"，文章摘要：{desc}"
-        messages.append({"role": "system", "content": page_info})
-
-    messages.append({"role": "system", "content": f"以下是检索到的博客内容片段：\n{context_block}"})
-
-    if history:
-        messages.extend(history)
-    messages.append({"role": "user", "content": question})
-    return messages

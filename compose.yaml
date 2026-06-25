@@ -37,6 +37,7 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/proxy_common.conf:/etc/nginx/proxy_common.conf:ro
       - public:/usr/share/nginx/html:ro
+      - ./apps/admin:/usr/share/nginx/admin:ro
     depends_on:
       - api
       - web

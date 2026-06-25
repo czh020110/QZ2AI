@@ -27,11 +27,13 @@ class Settings(BaseSettings):
     chroma_dir: str = "/data/chroma"
     notes_dir: str = "/data/notes"
     docstore_path: str = "/data/docstore.json"
+    db_path: str = "/data/blog.db"
     chroma_collection: str = "blog"
 
     similarity_top_k: int = 5
     llm_mock: bool = False
     reindex_token: str = ""
+    admin_token: str = ""
     allowed_origins: str = "http://localhost"
 
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
@@ -44,6 +46,18 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def sensitive_keys(self) -> set[str]:
+        return {
+            "llm_api_key",
+            "embedding_api_key",
+            "rerank_api_key",
+            "reindex_token",
+            "admin_token",
+            "cos_secret_id",
+            "cos_secret_key",
+        }
 
 
 

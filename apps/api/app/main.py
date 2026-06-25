@@ -10,19 +10,28 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .chat import chat_event_stream
 from .config import get_settings
+from .database import init_db
 from .errors import AppError
 from .indexer import get_chroma_collection, reindex
 from .models import ChatRequest, ErrorResponse, HealthResponse, ReindexResponse
+from .admin import router as admin_router
 
 logger = logging.getLogger("api")
 
 app = FastAPI(title="Blog AI API", version="0.1.0")
+app.include_router(admin_router)
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    init_db()
+
 
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origin_list,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "PATCH"],
     allow_headers=["*"],
 )
 

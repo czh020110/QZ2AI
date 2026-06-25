@@ -8,6 +8,7 @@ httpx==0.28.1
 llama-index-core==0.14.13
 llama-index-vector-stores-chroma==0.5.4
 llama-index-embeddings-openai==0.5.1
+llama-index-llms-openai==0.5.2
 
 # ---- 百炼原生 API ----
 dashscope>=1.24.0
