@@ -1,0 +1,7 @@
+services:
+  api:
+    ports:
+      - "18000:8000"
+    volumes:
+      - ./data:/data
+      - ./apps/api/app:/app/app:ro

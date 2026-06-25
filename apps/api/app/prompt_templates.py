@@ -7,15 +7,29 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_messages(question: str, contexts: list[dict], history: list | None = None) -> list[dict]:
-    """把系统提示 + 召回上下文 + 历史 + 用户问题拼成 OpenAI 格式 messages。"""
+def build_messages(
+    question: str,
+    contexts: list[dict],
+    history: list | None = None,
+    page_ctx: object | None = None,
+) -> list[dict]:
+    """把系统提示 + 当前页面上下文 + 召回上下文 + 历史 + 用户问题拼成 OpenAI 格式 messages。"""
     context_block = "\n\n".join(
         f"[来源:{c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
     )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "system", "content": f"以下是检索到的博客内容片段：\n{context_block}"},
     ]
+
+    if page_ctx and getattr(page_ctx, "title", ""):
+        page_info = f"用户当前正在阅读文章「{page_ctx.title}」"
+        desc = getattr(page_ctx, "description", "")
+        if desc:
+            page_info += f"，文章摘要：{desc}"
+        messages.append({"role": "system", "content": page_info})
+
+    messages.append({"role": "system", "content": f"以下是检索到的博客内容片段：\n{context_block}"})
+
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": question})

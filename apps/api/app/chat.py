@@ -20,13 +20,17 @@ def _sse(payload: dict) -> str:
 async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
     history = [message.model_dump() for message in req.history]
     settings = get_settings()
+    page_ctx = req.page_context
 
     try:
         if settings.llm_mock or not settings.llm_api_key:
             contexts: list[dict] = []
         else:
-            contexts = await asyncio.to_thread(retrieve, req.question)
-        messages = build_messages(req.question, contexts, history)
+            retrieval_query = req.question
+            if page_ctx and page_ctx.title:
+                retrieval_query = f"{page_ctx.title} {req.question}"
+            contexts = await asyncio.to_thread(retrieve, retrieval_query)
+        messages = build_messages(req.question, contexts, history, page_ctx)
         async for token in stream_chat(messages):
             yield _sse({"delta": token})
     except AppError as exc:

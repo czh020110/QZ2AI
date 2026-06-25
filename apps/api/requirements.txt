@@ -9,5 +9,8 @@ llama-index-core==0.14.13
 llama-index-vector-stores-chroma==0.5.4
 llama-index-embeddings-openai==0.5.1
 
+# ---- 百炼原生 API ----
+dashscope>=1.24.0
+
 # ---- 向量库（嵌入式持久化）----
 chromadb==1.0.20

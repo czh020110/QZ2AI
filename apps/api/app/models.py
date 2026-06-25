@@ -8,9 +8,16 @@ class ChatMessage(BaseModel):
     content: str
 
 
+class PageContext(BaseModel):
+    title: str = ""
+    description: str = ""
+    slug: str = ""
+
+
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
     history: list[ChatMessage] = Field(default_factory=list, max_length=20)
+    page_context: PageContext | None = None
 
 
 class SourceRef(BaseModel):

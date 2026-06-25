@@ -11,9 +11,18 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
 
-    embedding_base_url: str = "https://api.openai.com/v1"
+    embedding_provider: str = "dashscope"
     embedding_api_key: str = ""
-    embedding_model: str = "text-embedding-3-small"
+    embedding_model: str = "text-embedding-v4"
+    embedding_dimensions: int | None = Field(default=None, ge=1)
+    embedding_text_type: str = "document"
+
+    rerank_provider: str = "dashscope"
+    rerank_api_key: str = ""
+    rerank_model: str = "qwen3-rerank"
+    rerank_top_n: int | None = Field(default=None, ge=1, le=500)
+    rerank_enabled: bool = True
+    rerank_instruct: str = ""
 
     chroma_dir: str = "/data/chroma"
     notes_dir: str = "/data/notes"
@@ -27,6 +36,7 @@ class Settings(BaseSettings):
 
     llm_timeout_seconds: float = Field(default=60.0, gt=0)
     embedding_timeout_seconds: float = Field(default=60.0, gt=0)
+    rerank_timeout_seconds: float = Field(default=60.0, gt=0)
     http_max_retries: int = Field(default=2, ge=0, le=5)
     http_retry_backoff_seconds: float = Field(default=1.0, ge=0)
     embedding_batch_size: int = Field(default=10, ge=1, le=100)
@@ -34,6 +44,7 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
 
 
 @lru_cache

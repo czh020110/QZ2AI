@@ -1,7 +1,7 @@
 .ai-chat-widget-root {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: 1.25rem;
+  bottom: 1.25rem;
   z-index: 40;
   font: inherit;
 }
@@ -10,7 +10,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .ai-chat-widget__launcher,
@@ -23,22 +23,31 @@
 }
 
 .ai-chat-widget__launcher {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem 1rem;
-  border-radius: 999px;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
   background: var(--secondary);
   color: var(--light);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .ai-chat-widget__launcher:hover {
-  filter: brightness(1.05);
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.ai-chat-widget__launcher svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  fill: currentColor;
 }
 
 .ai-chat-widget__panel {
-  width: min(360px, calc(100vw - 2rem));
+  width: min(380px, calc(100vw - 2.5rem));
   height: min(560px, 70vh);
   display: flex;
   flex-direction: column;
@@ -48,6 +57,10 @@
   background: var(--light);
   color: var(--dark);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+}
+
+.ai-chat-widget__panel[hidden] {
+  display: none;
 }
 
 .ai-chat-widget__header {
@@ -75,6 +88,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--darkgray);
+  font-size: 1.1rem;
 }
 
 .ai-chat-widget__close:hover {
@@ -188,14 +202,15 @@
 }
 
 .ai-chat-widget__textarea {
-  min-height: 92px;
+  min-height: 72px;
   resize: vertical;
   border: 1px solid var(--lightgray);
   border-radius: 0.9rem;
-  padding: 0.8rem 0.9rem;
+  padding: 0.7rem 0.9rem;
   background: var(--light);
   color: var(--dark);
   font: inherit;
+  font-size: 0.9rem;
 }
 
 .ai-chat-widget__textarea:focus {
@@ -217,11 +232,12 @@
 }
 
 .ai-chat-widget__send {
-  padding: 0.7rem 1rem;
+  padding: 0.6rem 1rem;
   border-radius: 999px;
   background: var(--secondary);
   color: var(--light);
   white-space: nowrap;
+  font-size: 0.85rem;
 }
 
 .ai-chat-widget__send:disabled,

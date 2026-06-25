@@ -7,6 +7,7 @@ from .config import get_settings
 from .embed_client import get_embed_model
 from .errors import AppError
 from .indexer import _load_docstore, get_chroma_collection
+from .reranker_client import rerank_contexts
 
 logger = logging.getLogger("api")
 
@@ -30,7 +31,7 @@ def retrieve(question: str) -> list[dict]:
         )
         retriever = index.as_retriever(similarity_top_k=settings.similarity_top_k)
 
-        return [
+        contexts = [
             {
                 "text": result.node.text,
                 "title": result.node.metadata.get("title", ""),
@@ -38,6 +39,7 @@ def retrieve(question: str) -> list[dict]:
             }
             for result in retriever.retrieve(question)
         ]
+        return rerank_contexts(question, contexts)
     except AppError:
         raise
     except Exception as exc:  # noqa: BLE001
