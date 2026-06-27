@@ -659,6 +659,10 @@ body {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       环境配置
     </div>
+    <div class="nav-item" data-tab="sync" onclick="switchTab('sync')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 6.5m0 0l3 3-3 3m-3-6l-3 3 3 3"/></svg>
+      自动同步
+    </div>
   </nav>
   <div class="sidebar-footer">
     <div class="token-status">
@@ -696,6 +700,17 @@ body {
       <p>查看和修改博客运行时配置</p>
     </div>
     <div class="page-content" id="configContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Sync Tab -->
+  <div id="tab-sync" class="hidden">
+    <div class="page-header">
+      <h2>自动同步</h2>
+      <p>COS 文件变动时自动触发同步与重建</p>
+    </div>
+    <div class="page-content" id="syncContent">
       <div class="spinner"></div>
     </div>
   </div>
@@ -770,8 +785,10 @@ function switchTab(tab) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.tab === tab));
   document.getElementById('tab-feedback').classList.toggle('hidden', tab !== 'feedback');
   document.getElementById('tab-config').classList.toggle('hidden', tab !== 'config');
+  document.getElementById('tab-sync').classList.toggle('hidden', tab !== 'sync');
   if (tab === 'feedback') loadFeedback();
   if (tab === 'config') loadConfig();
+  if (tab === 'sync') loadSync();
 }
 
 // ===== Feedback =====
@@ -890,6 +907,8 @@ function groupConfig(items) {
     cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
     cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
     cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
+    auto_sync_enabled: '自动同步', webhook_secret: '自动同步',
+    debounce_seconds: '自动同步',
   };
 
   items.forEach(item => {
@@ -985,6 +1004,112 @@ async function saveConfig() {
 
   btn.disabled = false;
   btn.textContent = '保存配置';
+}
+
+// ===== Sync Status =====
+let syncPollTimer = null;
+
+async function loadSync() {
+  const content = document.getElementById('syncContent');
+  content.innerHTML = '<div class="spinner"></div>';
+
+  try {
+    const [statusRes, configRes] = await Promise.all([
+      fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } }),
+      fetch(`${API_BASE}/config`, { headers: { 'X-Admin-Token': adminToken } })
+    ]);
+    if (!statusRes.ok || !configRes.ok) throw new Error('加载失败');
+    const status = await statusRes.json();
+    const config = await configRes.json();
+    renderSync(status, config);
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
+  }
+
+  // 自动刷新同步状态
+  clearInterval(syncPollTimer);
+  syncPollTimer = setInterval(pollSyncStatus, 5000);
+}
+
+async function pollSyncStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } });
+    if (!res.ok) return;
+    const status = await res.json();
+    const statusEl = document.getElementById('syncStatusBadge');
+    const lastEl = document.getElementById('syncLastTime');
+    const countEl = document.getElementById('syncEventCount');
+    if (statusEl) {
+      const label = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
+      const cls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
+      statusEl.className = `tag ${cls}`;
+      statusEl.textContent = label;
+    }
+    if (lastEl) lastEl.textContent = status.last_sync_at ? formatTime(status.last_sync_at) : '—';
+    if (countEl) countEl.textContent = status.event_count || 0;
+  } catch { /* ignore */ }
+}
+
+function renderSync(status, config) {
+  const content = document.getElementById('syncContent');
+  // 从 config 中提取自动同步相关字段
+  const findVal = (key) => { const item = config.find(c => c.key === key); return item ? item.value : ''; };
+  const enabled = findVal('auto_sync_enabled');
+  const isBool = (v) => v === true || v === 'True' || v === 'true';
+  const enabledBool = isBool(enabled);
+
+  const stateLabel = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
+  const stateCls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
+
+  content.innerHTML = `
+    <div class="config-section">
+      <div class="config-section-title">同步状态</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="config-item">
+          <span class="config-label">当前状态</span>
+          <span class="tag ${stateCls}" id="syncStatusBadge" style="margin-top:4px;display:inline-block">${stateLabel}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">最近同步</span>
+          <span id="syncLastTime" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.last_sync_at ? formatTime(status.last_sync_at) : '—'}</span>
+        </div>
+        <div class="config-item">
+          <span class="config-label">待处理事件</span>
+          <span id="syncEventCount" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.event_count || 0}</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
+          ${status.syncing ? '同步中...' : '手动触发同步'}
+        </button>
+        <span class="save-hint">触发后 syncer 容器将执行 COS 拉取 → 索引重建 → Quartz 构建</span>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">SCF 云函数配置</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;font-size:.82rem;color:var(--text-secondary);line-height:1.7">
+        <p><strong style="color:var(--text-primary)">1.</strong> 在腾讯云 SCF 控制台创建函数，运行环境选 Python 3.9，代码使用 <code style="color:var(--accent)">scf/cos_webhook.py</code></p>
+        <p><strong style="color:var(--text-primary)">2.</strong> 配置环境变量：<code style="color:var(--accent)">WEBHOOK_URL</code> = 当前域名 + <code>/admin/api/webhook/cos</code>，<code style="color:var(--accent)">WEBHOOK_SECRET</code> = 与上方配置一致</p>
+        <p><strong style="color:var(--text-primary)">3.</strong> 在 COS 存储桶 > 事件通知中，配置 <code style="color:var(--accent)">ObjectCreated:*</code> 和 <code style="color:var(--accent)">ObjectRemove:*</code> 事件推送到此 SCF 函数，前缀设为 <code style="color:var(--accent)">${findVal('notes_cos_prefix') || 'Obsidian/Blog/online/'}</code></p>
+        <p style="margin-top:8px;color:var(--text-muted)">详见 <code>scf/README.md</code></p>
+      </div>
+    </div>
+  `;
+}
+
+async function triggerSync() {
+  try {
+    const res = await fetch(`${API_BASE}/sync-status`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pending: true, debounce_until: 0, syncing: false })
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    showToast('同步任务已触发，syncer 容器将自动执行', 'success');
+    loadSync();
+  } catch (e) {
+    showToast('触发失败：' + e.message, 'error');
+  }
 }
 
 // ===== Utils =====

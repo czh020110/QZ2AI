@@ -2,7 +2,7 @@
 # chroma 嵌入式（在 api 进程内），不单独起容器。
 
 services:
-  # FastAPI 后端：RAG 问答 + 索引重建。嵌入式 Chroma 单写入者，固定单进程。
+  # FastAPI 后端：RAG 问答 + 索引重建 + 同步状态管理。嵌入式 Chroma 单写入者，固定单进程。
   api:
     build: ./apps/api
     image: blog-api:latest
@@ -18,6 +18,21 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # 同步守护进程：轮询 API 同步状态，触发 coscli sync + reindex + Quartz 重建。
+  # 内置 coscli + docker CLI，挂载 Docker socket 以触发 web 容器重建。
+  syncer:
+    build: ./apps/syncer
+    image: blog-syncer:latest
+    env_file: .env
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/project:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
   # Quartz 构建：读 data/notes，构建静态站到 public 卷后退出（构建工具，非常驻）。
   web:

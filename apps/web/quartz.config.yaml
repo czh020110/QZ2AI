@@ -11,11 +11,11 @@ configuration:
     - templates
     - .obsidian
   theme:
-    fontOrigin: googleFonts
+    fontOrigin: local
     cdnCaching: true
     typography:
-      header: Schibsted Grotesk
-      body: Source Sans Pro
+      header: '"Songti SC", "SimSun", "STSong", serif'
+      body: '"Songti SC", "SimSun", "STSong", serif'
       code: IBM Plex Mono
     colors:
       lightMode:

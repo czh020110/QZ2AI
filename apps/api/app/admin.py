@@ -1,6 +1,8 @@
 from datetime import datetime
 import fcntl
+import json
 import os
+import time
 from typing import Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException, status
@@ -9,6 +11,7 @@ from pydantic import BaseModel
 
 from .config import get_settings
 from .database import get_connection
+from .models import SyncStatusResponse, WebhookResponse
 
 router = APIRouter(prefix="/admin/api", tags=["admin"])
 
@@ -195,3 +198,115 @@ def _field_type_name(field_info: Any) -> str:
     ):
         return "float"
     return "string"
+
+
+# ============================ 自动同步 ============================ #
+
+SYNC_PENDING_PATH = "/data/sync-pending.json"
+
+
+def _read_sync_state() -> dict[str, Any]:
+    """读取同步状态文件，不存在则返回默认值"""
+    try:
+        with open(SYNC_PENDING_PATH) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {
+            "pending": False,
+            "syncing": False,
+            "debounce_until": 0,
+            "triggered_at": "",
+            "event_count": 0,
+            "last_sync_at": "",
+            "last_sync_status": "",
+        }
+
+
+def _write_sync_state(state: dict[str, Any]) -> None:
+    """加文件锁写入同步状态"""
+    with open(SYNC_PENDING_PATH, "a+") as f:
+        f.seek(0)
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            f.truncate()
+            json.dump(state, f, ensure_ascii=False)
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None) -> None:
+    """验证 webhook 请求：X-Webhook-Secret 或 X-Admin-Token 均可"""
+    s = get_settings()
+    if s.webhook_secret and x_webhook_secret == s.webhook_secret:
+        return
+    _verify_admin(x_admin_token)
+
+
+@router.post("/webhook/cos", response_model=WebhookResponse)
+def cos_webhook(
+    body: dict[str, Any] | None = None,
+    x_webhook_secret: str | None = Header(default=None),
+    x_admin_token: str | None = Header(default=None),
+) -> WebhookResponse:
+    _verify_webhook(x_webhook_secret, x_admin_token)
+    s = get_settings()
+
+    if not s.auto_sync_enabled:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "自动同步未启用")
+
+    # 前缀过滤：只处理 notes_cos_prefix 下的事件
+    if body and s.notes_cos_prefix:
+        records = body.get("Records", [])
+        prefix = s.notes_cos_prefix.lstrip("/")
+        matched = False
+        for record in records:
+            key = ""
+            cos_obj = record.get("cos", {}).get("cosObject", {})
+            if not cos_obj:
+                cos_obj = record.get("cosObject", {})
+            key = cos_obj.get("key", "")
+            # COS 事件 key 格式：appid/bucket/path，取 path 部分做前缀匹配
+            if "/" in key and len(key.split("/", 2)) >= 3:
+                key = key.split("/", 2)[2]
+            if key.startswith(prefix):
+                matched = True
+                break
+        if not matched and records:
+            return WebhookResponse(status="ignored", message="事件不在监听前缀范围内")
+
+    state = _read_sync_state()
+    state["pending"] = True
+    state["syncing"] = False
+    state["debounce_until"] = time.time() + s.debounce_seconds
+    state["triggered_at"] = datetime.now().isoformat()
+    state["event_count"] = state.get("event_count", 0) + 1
+    _write_sync_state(state)
+
+    return WebhookResponse(status="accepted", message="同步任务已接收，等待防抖窗口结束后执行")
+
+
+@router.get("/sync-status", response_model=SyncStatusResponse)
+def get_sync_status(
+    x_admin_token: str | None = Header(default=None),
+) -> SyncStatusResponse:
+    _verify_admin(x_admin_token)
+    state = _read_sync_state()
+    return SyncStatusResponse(**state)
+
+
+@router.post("/sync-status", response_model=SyncStatusResponse)
+def update_sync_status(
+    body: dict[str, Any] | None = None,
+    x_admin_token: str | None = Header(default=None),
+) -> SyncStatusResponse:
+    """合并更新同步状态（syncer 守护进程和管理后台使用）"""
+    _verify_admin(x_admin_token)
+    state = _read_sync_state()
+    if body:
+        for key in ("pending", "syncing", "debounce_until", "triggered_at",
+                     "event_count", "last_sync_at", "last_sync_status"):
+            if key in body:
+                state[key] = body[key]
+    _write_sync_state(state)
+    return SyncStatusResponse(**state)

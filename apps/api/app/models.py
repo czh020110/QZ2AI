@@ -43,3 +43,18 @@ class HealthResponse(BaseModel):
     status: str
     chroma: str
     notes_dir_exists: bool
+
+
+class WebhookResponse(BaseModel):
+    status: str
+    message: str
+
+
+class SyncStatusResponse(BaseModel):
+    pending: bool = False
+    syncing: bool = False
+    debounce_until: float = 0
+    triggered_at: str = ""
+    event_count: int = 0
+    last_sync_at: str = ""
+    last_sync_status: str = ""
