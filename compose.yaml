@@ -23,6 +23,7 @@ services:
   web:
     build: ./apps/web
     image: blog-web:latest
+    env_file: .env
     volumes:
       - ./data/notes:/data/notes:ro
       - public:/public

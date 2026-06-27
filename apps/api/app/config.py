@@ -30,6 +30,19 @@ class Settings(BaseSettings):
     db_path: str = "/data/blog.db"
     chroma_collection: str = "blog"
 
+    # COS 笔记同步：notes_cos_prefix 指定 OSS 中的笔记文件夹路径
+    # sync.sh 会根据 cos_bucket + notes_cos_prefix 拼出完整 COS_SYNC_SOURCE
+    cos_secret_id: str = ""
+    cos_secret_key: str = ""
+    cos_region: str = "ap-shanghai"
+    cos_endpoint: str = "cos.ap-shanghai.myqcloud.com"
+    cos_bucket: str = ""
+    notes_cos_prefix: str = ""
+
+    # 附件文件夹名列表（逗号分隔），这些文件夹不会被索引为博客文章
+    # 但仍会被同步下载和 Quartz 构建复制，保证文章中的图片正常显示
+    notes_assets_folders: str = "assets"
+
     similarity_top_k: int = 5
     llm_mock: bool = False
     reindex_token: str = ""
@@ -46,6 +59,10 @@ class Settings(BaseSettings):
     @property
     def allowed_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
+
+    @property
+    def assets_folder_set(self) -> set[str]:
+        return {f.strip() for f in self.notes_assets_folders.split(",") if f.strip()}
 
     @property
     def sensitive_keys(self) -> set[str]:

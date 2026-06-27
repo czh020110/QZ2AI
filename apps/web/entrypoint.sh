@@ -26,4 +26,6 @@ npx quartz build -o "$BUILD_DIR"
 echo "[entrypoint] 同步产物到 $OUTPUT_DIR"
 find "$OUTPUT_DIR" -mindepth 1 -delete 2>/dev/null || true
 cp -a "$BUILD_DIR"/. "$OUTPUT_DIR"/
+# 修复权限：nginx worker 以 nginx 用户运行，需要 other 可读
+chmod -R o+rX "$OUTPUT_DIR"
 echo "[entrypoint] 构建完成"

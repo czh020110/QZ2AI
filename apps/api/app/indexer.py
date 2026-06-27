@@ -28,10 +28,19 @@ def _load_docstore(docstore_path: str) -> SimpleDocumentStore:
     return SimpleDocumentStore()
 
 
-def _list_note_files(notes_dir: Path) -> list[str]:
+def _list_note_files(notes_dir: Path, assets_folders: set[str] | None = None) -> list[str]:
     if not notes_dir.is_dir():
         return []
-    return [str(path) for path in sorted(notes_dir.rglob("*.md")) if path.is_file()]
+    skip = assets_folders or set()
+    result = []
+    for path in sorted(notes_dir.rglob("*.md")):
+        if not path.is_file():
+            continue
+        # 跳过附件文件夹内的文件
+        if skip and any(part in skip for part in path.relative_to(notes_dir).parts):
+            continue
+        result.append(str(path))
+    return result
 
 
 def _extract_title(text: str, doc_id: str) -> str:
@@ -103,7 +112,7 @@ def reindex() -> dict:
     if not notes_dir.is_dir():
         raise AppError(500, "notes_unavailable", f"笔记目录不存在：{notes_dir}")
 
-    input_files = _list_note_files(notes_dir)
+    input_files = _list_note_files(notes_dir, settings.assets_folder_set)
     docstore = _load_docstore(settings.docstore_path)
     previous_hashes = _existing_hashes_by_doc_id(docstore)
     current_doc_ids = {

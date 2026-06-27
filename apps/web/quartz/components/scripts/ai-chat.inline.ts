@@ -85,10 +85,14 @@ function mountAIChatWidget() {
               </div>`
             : ""
         const errorHtml = m.role === "error" ? `<div class="ai-chat-widget__message-error">${escapeHtml(m.content)}</div>` : ""
+        const waiting = m.role === "assistant" && m.content === "" && isLoading
+        const contentHtml = waiting
+          ? `<div class="ai-chat-widget__typing"><span></span><span></span><span></span></div>`
+          : escapeHtml(m.content)
         return `<div class="ai-chat-widget__message ai-chat-widget__message--${m.role}">
           <div class="ai-chat-widget__message-card">
             <div class="ai-chat-widget__message-role">${roleLabel}</div>
-            <div class="ai-chat-widget__message-content">${escapeHtml(m.content)}</div>
+            <div class="ai-chat-widget__message-content">${contentHtml}</div>
             ${sourcesHtml}${errorHtml}
           </div>
         </div>`

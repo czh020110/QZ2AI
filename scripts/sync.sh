@@ -43,10 +43,19 @@ COS_SECRET_KEY="${COS_SECRET_KEY:-$(read_env_value COS_SECRET_KEY)}"
 COS_REGION="${COS_REGION:-$(read_env_value COS_REGION)}"
 COS_ENDPOINT="${COS_ENDPOINT:-$(read_env_value COS_ENDPOINT)}"
 COS_BUCKET="${COS_BUCKET:-$(read_env_value COS_BUCKET)}"
+NOTES_COS_PREFIX="${NOTES_COS_PREFIX:-$(read_env_value NOTES_COS_PREFIX)}"
 COS_SYNC_SOURCE="${COS_SYNC_SOURCE:-$(read_env_value COS_SYNC_SOURCE)}"
 COS_ENDPOINT="${COS_ENDPOINT#https://}"
 COS_ENDPOINT="${COS_ENDPOINT#http://}"
 COS_ENDPOINT="${COS_ENDPOINT%/}"
+
+# 若已有完整 COS_SYNC_SOURCE 则直接使用；否则根据 COS_BUCKET + NOTES_COS_PREFIX 拼接
+if [ -z "$COS_SYNC_SOURCE" ] && [ -n "$COS_BUCKET" ] && [ -n "$NOTES_COS_PREFIX" ]; then
+  NOTES_COS_PREFIX="${NOTES_COS_PREFIX#/}"
+  NOTES_COS_PREFIX="${NOTES_COS_PREFIX%/}"
+  COS_SYNC_SOURCE="cos://${COS_BUCKET}/${NOTES_COS_PREFIX}/"
+  echo "[sync] 根据 NOTES_COS_PREFIX 拼出同步源: $COS_SYNC_SOURCE"
+fi
 
 if ! command -v "$COSCLI_BIN" >/dev/null 2>&1 && [ ! -x "$COSCLI_BIN" ]; then
   echo "[sync] 未找到 coscli 可执行文件: $COSCLI_BIN" >&2

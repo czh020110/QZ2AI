@@ -880,16 +880,16 @@ function groupConfig(items) {
     rerank_model: 'Reranker 重排序', rerank_top_n: 'Reranker 重排序',
     rerank_enabled: 'Reranker 重排序', rerank_instruct: 'Reranker 重排序',
     chroma_dir: '数据目录', notes_dir: '数据目录', docstore_path: '数据目录',
-    db_path: '数据目录', chroma_collection: '数据目录',
+    db_path: '数据目录', chroma_collection: '数据目录', notes_assets_folders: '数据目录',
     similarity_top_k: '检索参数', llm_mock: '检索参数',
     llm_timeout_seconds: '超时与重试', embedding_timeout_seconds: '超时与重试',
     rerank_timeout_seconds: '超时与重试', http_max_retries: '超时与重试',
     http_retry_backoff_seconds: '超时与重试', embedding_batch_size: '超时与重试',
     reindex_token: '安全 Token', admin_token: '安全 Token',
-    allowed_origins: 'CORS', coscli_bin: 'COS 同步', cos_secret_id: 'COS 同步',
-    cos_secret_key: 'COS 同步', cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
-    cos_bucket: 'COS 同步', cos_sync_source: 'COS 同步',
-    coscli_config_path: 'COS 同步', api_base: 'COS 同步',
+    allowed_origins: 'CORS',
+    cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
+    cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
+    cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
   };
 
   items.forEach(item => {
