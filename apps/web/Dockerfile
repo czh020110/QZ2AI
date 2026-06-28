@@ -28,6 +28,15 @@ COPY quartz.ts ./quartz.ts
 COPY quartz ./quartz
 RUN npx quartz plugin install --from-config
 
+# 修复 note-properties 插件默认配置：将 includeAll 改为 true，清空 includedProperties
+RUN if [ -f /quartz/.quartz/plugins/note-properties/package.json ]; then \
+    sed -i 's/"includeAll": false/"includeAll": true/g' \
+        /quartz/.quartz/plugins/note-properties/package.json && \
+    sed -i 's/"includedProperties": \["description", "tags", "aliases"\]/"includedProperties": []/g' \
+        /quartz/.quartz/plugins/note-properties/package.json && \
+    echo "✓ note-properties plugin patched: includeAll=true, includedProperties=[]"; \
+fi
+
 # ---------- 阶段二：运行时镜像 ----------
 FROM node:22-slim AS runtime
 
