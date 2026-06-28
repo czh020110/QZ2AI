@@ -182,10 +182,79 @@
 }
 
 .ai-chat-widget__message-content {
-  white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.55;
+  line-height: 1.6;
   font-size: 0.92rem;
+
+  p { margin: 0.3em 0; }
+  p:first-child { margin-top: 0; }
+  p:last-child { margin-bottom: 0; }
+
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+
+  a {
+    color: var(--secondary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  a:hover { opacity: 0.8; }
+
+  h4.ai-chat-md__h {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0.6em 0 0.3em;
+  }
+
+  ul.ai-chat-md__ul,
+  ol.ai-chat-md__ol {
+    margin: 0.4em 0;
+    padding-left: 1.4em;
+  }
+  li.ai-chat-md__li,
+  li.ai-chat-md__ol-li {
+    margin: 0.15em 0;
+    line-height: 1.5;
+  }
+  ul.ai-chat-md__ul { list-style: disc; }
+  ol.ai-chat-md__ol { list-style: decimal; }
+
+  pre.ai-chat-md__code-block {
+    margin: 0.5em 0;
+    padding: 0.6em 0.8em;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.06);
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+  pre.ai-chat-md__code-block code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  blockquote.ai-chat-md__blockquote {
+    margin: 0.5em 0;
+    padding: 0.3em 0.8em;
+    border-left: 3px solid var(--tertiary);
+    background: var(--highlight);
+    border-radius: 0 6px 6px 0;
+  }
+  blockquote.ai-chat-md__blockquote p.ai-chat-md__blockquote-line {
+    margin: 0.15em 0;
+    font-style: italic;
+    opacity: 0.85;
+  }
+
+  code.ai-chat-md__inline-code {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.85em;
+    padding: 0.15em 0.35em;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.06);
+  }
 }
 
 .ai-chat-widget__message-error {
@@ -318,11 +387,40 @@
   background: var(--highlight);
 }
 
-// 文件夹条目：同样截断
+// 文件夹条目：固定为 inline-block 使 ellipsis 生效，留有图标空间
+.folder-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0; // 允许 flex 子元素收缩到内容之下触发截断
+}
+
+.folder-container div {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .folder-container div > a,
 .folder-container div > button span {
+  display: inline-block;
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: calc(100% - 1.5rem);
+  vertical-align: middle;
+}
+
+// 文件夹按钮：去掉按钮默认样式
+.folder-container .folder-button {
+  all: unset;
+  cursor: pointer;
+  width: 100%;
+}
+
+// 嵌套树形线：只给一级 folder-outer 下面加
+.explorer-content .folder-outer > ul {
+  border-left: 1px solid var(--lightgray);
+  margin-left: 6px;
+  padding-left: 0.8rem;
+  overflow: hidden;
 }

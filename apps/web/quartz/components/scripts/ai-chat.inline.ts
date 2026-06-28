@@ -3,6 +3,71 @@ const ROOT_ID = "ai-chat-widget-root"
 const escapeHtml = (v: string) =>
   v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 
+const renderMarkdown = (md: string): string => {
+  // 先转义 HTML 特殊字符
+  let html = escapeHtml(md)
+
+  // 代码块（```...```）— 必须最先处理，内部不再解析
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, _lang, code) => {
+    return `<pre class="ai-chat-md__code-block"><code>${code.trim()}</code></pre>`
+  })
+
+  // 行内代码（`...`）
+  html = html.replace(/`([^`\n]+)`/g, '<code class="ai-chat-md__inline-code">$1</code>')
+
+  // 引用块（&gt; 开头）→ 转义后 > 变为 &gt;，按行匹配后包裹成 blockquote
+  html = html.replace(/^&gt; (.+)$/gm, '<p class="ai-chat-md__blockquote-line">$1</p>')
+  html = html.replace(
+    /((?:<p class="ai-chat-md__blockquote-line">.*<\/p>\n?)+)/g,
+    '<blockquote class="ai-chat-md__blockquote">$1</blockquote>',
+  )
+
+  // 加粗（**...**）
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+
+  // 斜体（*...*）— 不匹配 ** 已处理的情况
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>")
+
+  // 链接（[text](url)）
+  html = html.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener">$1</a>',
+  )
+
+  // 无序列表：先收集连续行再包裹，避免与有序列表交叉
+  html = html.replace(/^[\-\*] (.+)$/gm, '<li class="ai-chat-md__li">$1</li>')
+  html = html.replace(
+    /((?:<li class="ai-chat-md__li">.*<\/li>\n?)+)/g,
+    '<ul class="ai-chat-md__ul">$1</ul>',
+  )
+
+  // 有序列表：行首 数字. 开头
+  html = html.replace(/^\d+\. (.+)$/gm, '<li class="ai-chat-md__ol-li">$1</li>')
+  html = html.replace(
+    /((?:<li class="ai-chat-md__ol-li">.*<\/li>\n?)+)/g,
+    '<ol class="ai-chat-md__ol">$1</ol>',
+  )
+
+  // 标题（### / ## / #）
+  html = html.replace(/^### (.+)$/gm, '<h4 class="ai-chat-md__h">$1</h4>')
+  html = html.replace(/^## (.+)$/gm, '<h4 class="ai-chat-md__h">$1</h4>')
+  html = html.replace(/^# (.+)$/gm, '<h4 class="ai-chat-md__h">$1</h4>')
+
+  // 段落：双换行分段
+  html = html.replace(/\n{2,}/g, "</p><p>")
+  html = `<p>${html}</p>`
+  // 清理空段落
+  html = html.replace(/<p>\s*<\/p>/g, "")
+
+  // 单换行 → <br>（代码块/引用块/列表项内的换行保留）
+  html = html.replace(
+    /(?<!<\/pre>|<\/code>|<\/li>|<\/ul>|<\/ol>|<\/h4>|<\/blockquote>)\n(?!<pre|<ul|<ol|<h4|<blockquote)/g,
+    "<br>",
+  )
+
+  return html
+}
+
 type ChatMessage = {
   role: "user" | "assistant" | "error"
   content: string
@@ -88,7 +153,7 @@ function mountAIChatWidget() {
         const waiting = m.role === "assistant" && m.content === "" && isLoading
         const contentHtml = waiting
           ? `<div class="ai-chat-widget__typing"><span></span><span></span><span></span></div>`
-          : escapeHtml(m.content)
+          : renderMarkdown(m.content)
         return `<div class="ai-chat-widget__message ai-chat-widget__message--${m.role}">
           <div class="ai-chat-widget__message-card">
             <div class="ai-chat-widget__message-role">${roleLabel}</div>
@@ -112,12 +177,9 @@ function mountAIChatWidget() {
     syncUI()
   }
 
-  const getPageContext = () => {
-    const title = document.querySelector(".article-title")?.textContent?.trim() || ""
-    const desc = document.querySelector('meta[name="description"]')?.getAttribute("content") || ""
-    const slug = document.body?.dataset?.slug || ""
-    return { title, description: desc, slug }
-  }
+  const getPageContext = () => ({
+    slug: document.body?.dataset?.slug || ""
+  })
 
   const submitQuestion = async (question: string) => {
     messages.push({ role: "user", content: question })

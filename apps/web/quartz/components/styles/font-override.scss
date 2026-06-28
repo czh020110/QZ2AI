@@ -1,0 +1,9 @@
+/* 替代 Quartz fonts 插件（已禁用）：提供页面字体 CSS 变量。
+   宋体优先链 → serif 最终回退；代码块保持等宽。 */
+
+:root {
+  --titleFont:  "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --headerFont: "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --bodyFont:   "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --codeFont:   "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}

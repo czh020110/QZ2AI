@@ -25,6 +25,8 @@ app.include_router(admin_router)
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    from .syncer import start_syncer_thread
+    start_syncer_thread()
 
 
 settings = get_settings()

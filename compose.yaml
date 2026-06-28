@@ -1,38 +1,33 @@
-# 单机多服务编排：对外仅 nginx 暴露端口，web/api 走内部网络。
+# 单机双服务编排：blog 常驻（API + nginx + syncer），web 按需运行。
 # chroma 嵌入式（在 api 进程内），不单独起容器。
 
 services:
-  # FastAPI 后端：RAG 问答 + 索引重建 + 同步状态管理。嵌入式 Chroma 单写入者，固定单进程。
-  api:
+  # 主服务：supervisord 管理 nginx + uvicorn，syncer 为后台线程。
+  # 对外仅此容器暴露端口；内部 nginx 反代 uvicorn。
+  blog:
     build: ./apps/api
-    image: blog-api:latest
+    image: blog:latest
     env_file: .env
-    volumes:
-      - ./data:/data
-    expose:
-      - "8000"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health').status==200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  # 同步守护进程：轮询 API 同步状态，触发 coscli sync + reindex + Quartz 重建。
-  # 内置 coscli + docker CLI，挂载 Docker socket 以触发 web 容器重建。
-  syncer:
-    build: ./apps/syncer
-    image: blog-syncer:latest
-    env_file: .env
+    ports:
+      - "18088:80"
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/project:ro
-    depends_on:
-      api:
-        condition: service_healthy
+      - public:/usr/share/nginx/html:ro
+      - ./apps/admin:/usr/share/nginx/admin:ro
+    environment:
+      - PROJECT_DIR=/project
     restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Quartz 构建：读 data/notes，构建静态站到 public 卷后退出（构建工具，非常驻）。
   web:
@@ -44,25 +39,6 @@ services:
       - public:/public
     restart: "no"
 
-  # 唯一对外入口：/ 托管 public 卷静态产物，/api 反代 api 服务。
-  # 启动前等待 web 构建产物就绪，避免挂载空卷。
-  nginx:
-    image: nginx:1.27-alpine
-    ports:
-      - "18088:80"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/proxy_common.conf:/etc/nginx/proxy_common.conf:ro
-      - public:/usr/share/nginx/html:ro
-      - ./apps/admin:/usr/share/nginx/admin:ro
-      - ./nginx/wait-for-public.sh:/docker-entrypoint.d/40-wait-for-public.sh:ro
-    depends_on:
-      api:
-        condition: service_healthy
-      web:
-        condition: service_completed_successfully
-    restart: unless-stopped
-
 volumes:
-  # Quartz 构建产物：web 写入、nginx 只读托管
+  # Quartz 构建产物：web 写入、blog 容器内 nginx 只读托管
   public:

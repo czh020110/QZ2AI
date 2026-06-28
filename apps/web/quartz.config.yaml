@@ -14,8 +14,8 @@ configuration:
     fontOrigin: local
     cdnCaching: true
     typography:
-      header: '"Songti SC", "SimSun", "STSong", serif'
-      body: '"Songti SC", "SimSun", "STSong", serif'
+      header: Songti SC, SimSun, STSong, Noto Serif CJK SC, Source Han Serif SC, serif
+      body: Songti SC, SimSun, STSong, Noto Serif CJK SC, Source Han Serif SC, serif
       code: IBM Plex Mono
     colors:
       lightMode:
@@ -97,7 +97,7 @@ plugins:
     enabled: false
     order: 92
   - source: github:quartz-community/fonts
-    enabled: true
+    enabled: false
   - source: github:quartz-community/remove-draft
     enabled: true
   - source: github:quartz-community/explicit-publish
@@ -112,7 +112,7 @@ plugins:
   - source: github:quartz-community/favicon
     enabled: true
   - source: github:quartz-community/og-image
-    enabled: true
+    enabled: false
   - source: github:quartz-community/cname
     enabled: true
   - source: github:quartz-community/canvas-page

@@ -9,8 +9,6 @@ class ChatMessage(BaseModel):
 
 
 class PageContext(BaseModel):
-    title: str = ""
-    description: str = ""
     slug: str = ""
 
 

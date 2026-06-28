@@ -69,6 +69,62 @@ def _build_source_url(doc_id: str) -> str:
     return f"/{path.with_suffix('').as_posix()}"
 
 
+_slug_map: dict[str, str] | None = None
+
+
+def _build_slug_map() -> dict[str, str]:
+    """构建 quartz-slug → file_path 的映射（spaces→-, 转小写）。"""
+    collection = get_chroma_collection()
+    result = collection.get(include=["metadatas"], limit=10000)
+    mapping: dict[str, str] = {}
+    for m in result["metadatas"]:
+        url = m.get("source_url", "")
+        fp = m.get("file_path", "")
+        if url and fp:
+            key = url.lstrip("/").replace(" ", "-").lower()
+            mapping.setdefault(key, fp)
+    return mapping
+
+
+def get_note_context(slug: str) -> dict:
+    """根据前端 slug 读取笔记文件，返回 frontmatter 和标题大纲。"""
+    global _slug_map
+    if _slug_map is None:
+        _slug_map = _build_slug_map()
+
+    key = slug.lstrip("/").lower()
+    file_path = _slug_map.get(key, "")
+    if not file_path:
+        return {}
+
+    settings = get_settings()
+    full_path = Path(settings.notes_dir) / file_path
+    if not full_path.is_file():
+        return {}
+
+    text = full_path.read_text(encoding="utf-8")
+    frontmatter: dict = {}
+    body = text
+    fm_match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
+    if fm_match:
+        body = text[fm_match.end():]
+        for line in fm_match.group(1).splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                frontmatter[k.strip()] = v.strip().strip('"').strip("'")
+
+    headings = []
+    for line in body.splitlines():
+        if line.startswith("### "):
+            headings.append(f"### {line[4:].strip()}")
+        elif line.startswith("## "):
+            headings.append(f"## {line[3:].strip()}")
+        elif line.startswith("# "):
+            headings.append(f"# {line[2:].strip()}")
+
+    return {"frontmatter": frontmatter, "headings": headings}
+
+
 def _prepare_documents(notes_dir: Path, input_files: list[str]):
     documents = SimpleDirectoryReader(
         input_files=input_files,
