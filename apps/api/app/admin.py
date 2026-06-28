@@ -235,10 +235,9 @@ def _write_sync_state(state: dict[str, Any]) -> None:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None) -> None:
-    """验证 webhook 请求：X-Webhook-Secret 或 X-Admin-Token 均可"""
+def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secret: str | None = None) -> None:
     s = get_settings()
-    if s.webhook_secret and x_webhook_secret == s.webhook_secret:
+    if s.webhook_secret and (x_webhook_secret == s.webhook_secret or secret == s.webhook_secret):
         return
     _verify_admin(x_admin_token)
 
@@ -246,10 +245,11 @@ def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None) -> 
 @router.post("/webhook/cos", response_model=WebhookResponse)
 def cos_webhook(
     body: dict[str, Any] | None = None,
+    secret: str | None = None,
     x_webhook_secret: str | None = Header(default=None),
     x_admin_token: str | None = Header(default=None),
 ) -> WebhookResponse:
-    _verify_webhook(x_webhook_secret, x_admin_token)
+    _verify_webhook(x_webhook_secret, x_admin_token, secret)
     s = get_settings()
 
     if not s.auto_sync_enabled:

@@ -53,17 +53,16 @@ const renderMarkdown = (md: string): string => {
   html = html.replace(/^## (.+)$/gm, '<h4 class="ai-chat-md__h">$1</h4>')
   html = html.replace(/^# (.+)$/gm, '<h4 class="ai-chat-md__h">$1</h4>')
 
-  // 段落：双换行分段
-  html = html.replace(/\n{2,}/g, "</p><p>")
-  html = `<p>${html}</p>`
-  // 清理空段落
-  html = html.replace(/<p>\s*<\/p>/g, "")
-
-  // 单换行 → <br>（代码块/引用块/列表项内的换行保留）
-  html = html.replace(
-    /(?<!<\/pre>|<\/code>|<\/li>|<\/ul>|<\/ol>|<\/h4>|<\/blockquote>)\n(?!<pre|<ul|<ol|<h4|<blockquote)/g,
-    "<br>",
-  )
+  // 段落：按双换行分段，块级元素直接输出不套 <p>
+  html = html
+    .split(/\n{2,}/)
+    .map(chunk => {
+      const t = chunk.trim()
+      if (!t) return ""
+      if (/^<(ul|ol|pre|blockquote|h4)[\s>]/.test(t)) return t
+      return `<p>${t.replace(/\n/g, "<br>")}</p>`
+    })
+    .join("")
 
   return html
 }

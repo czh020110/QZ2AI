@@ -218,11 +218,8 @@ plugins:
   - source: github:quartz-community/note-properties
     enabled: true
     options:
-      includeAll: false
-      includedProperties:
-        - description
-        - tags
-        - aliases
+      includeAll: true
+      includedProperties: []
       excludedProperties: []
       hidePropertiesView: false
       delimiters: ---

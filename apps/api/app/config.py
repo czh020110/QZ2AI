@@ -44,9 +44,11 @@ class Settings(BaseSettings):
     notes_assets_folders: str = "assets"
 
     # 自动同步：COS 文件变动时通过 SCF webhook 触发自动拉取 + reindex + Quartz 重建
-    auto_sync_enabled: bool = False
+    auto_sync_enabled: bool = True
     webhook_secret: str = ""
     debounce_seconds: int = Field(default=30, ge=5, le=300)
+    # 定时同步间隔（秒），0 表示禁用定时同步，仅靠 webhook 触发
+    sync_interval_seconds: int = Field(default=0, ge=0)
 
     similarity_top_k: int = 5
     llm_mock: bool = False

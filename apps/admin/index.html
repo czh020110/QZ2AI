@@ -753,11 +753,6 @@ async function verifyToken(token) {
   }
 }
 
-document.getElementById('loginBtn').addEventListener('click', handleLogin);
-document.getElementById('loginInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') handleLogin();
-});
-
 async function handleLogin() {
   const input = document.getElementById('loginInput');
   const error = document.getElementById('loginError');
@@ -907,11 +902,12 @@ function groupConfig(items) {
     cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
     cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
     cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
-    auto_sync_enabled: '自动同步', webhook_secret: '自动同步',
-    debounce_seconds: '自动同步',
   };
+  // 这些字段在同步标签页管理，不显示在环境配置中
+  const syncOnlyKeys = new Set(['auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds']);
 
   items.forEach(item => {
+    if (syncOnlyKeys.has(item.key)) return;
     const group = groupMap[item.key] || '其他';
     if (!groups[group]) groups[group] = [];
     groups[group].push(item);
@@ -1052,14 +1048,39 @@ async function pollSyncStatus() {
 
 function renderSync(status, config) {
   const content = document.getElementById('syncContent');
-  // 从 config 中提取自动同步相关字段
   const findVal = (key) => { const item = config.find(c => c.key === key); return item ? item.value : ''; };
-  const enabled = findVal('auto_sync_enabled');
+  const findSensitive = (key) => { const item = config.find(c => c.key === key); return item ? item.sensitive : false; };
   const isBool = (v) => v === true || v === 'True' || v === 'true';
-  const enabledBool = isBool(enabled);
 
   const stateLabel = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
   const stateCls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
+
+  const syncKeys = ['auto_sync_enabled', 'sync_interval_seconds', 'debounce_seconds', 'webhook_secret'];
+  const syncLabels = {
+    auto_sync_enabled: '定时同步开关', sync_interval_seconds: '定时同步间隔（秒，0=禁用）', debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥' };
+
+  let configHtml = '';
+  syncKeys.forEach(key => {
+    const val = findVal(key);
+    const sensitive = findSensitive(key);
+    const label = syncLabels[key];
+    if (key === 'auto_sync_enabled') {
+      const checked = isBool(val);
+      configHtml += `<div class="config-item">
+        <label class="config-label">${esc(label)}</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
+          <input type="checkbox" data-key="${key}" ${checked ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:.78rem;color:var(--text-secondary)">${checked ? '已开启' : '已关闭'}</span>
+        </label>
+      </div>`;
+    } else {
+      configHtml += `<div class="config-item">
+        <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
+        <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+          value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
+      </div>`;
+    }
+  });
 
   content.innerHTML = `
     <div class="config-section">
@@ -1082,19 +1103,46 @@ function renderSync(status, config) {
         <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
           ${status.syncing ? '同步中...' : '手动触发同步'}
         </button>
-        <span class="save-hint">触发后 syncer 容器将执行 COS 拉取 → 索引重建 → Quartz 构建</span>
+        <span class="save-hint">触发后将执行 COS 拉取 → 索引重建 → Quartz 构建</span>
       </div>
     </div>
     <div class="config-section">
-      <div class="config-section-title">SCF 云函数配置</div>
-      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;font-size:.82rem;color:var(--text-secondary);line-height:1.7">
-        <p><strong style="color:var(--text-primary)">1.</strong> 在腾讯云 SCF 控制台创建函数，运行环境选 Python 3.9，代码使用 <code style="color:var(--accent)">scf/cos_webhook.py</code></p>
-        <p><strong style="color:var(--text-primary)">2.</strong> 配置环境变量：<code style="color:var(--accent)">WEBHOOK_URL</code> = 当前域名 + <code>/admin/api/webhook/cos</code>，<code style="color:var(--accent)">WEBHOOK_SECRET</code> = 与上方配置一致</p>
-        <p><strong style="color:var(--text-primary)">3.</strong> 在 COS 存储桶 > 事件通知中，配置 <code style="color:var(--accent)">ObjectCreated:*</code> 和 <code style="color:var(--accent)">ObjectRemove:*</code> 事件推送到此 SCF 函数，前缀设为 <code style="color:var(--accent)">${findVal('notes_cos_prefix') || 'Obsidian/Blog/online/'}</code></p>
-        <p style="margin-top:8px;color:var(--text-muted)">详见 <code>scf/README.md</code></p>
+      <div class="config-section-title">同步配置</div>
+      <div class="config-grid">${configHtml}</div>
+      <div class="config-footer">
+        <button class="btn-save" onclick="saveSyncConfig()">保存配置</button>
+        <span class="save-hint">修改后需重启 API 服务生效</span>
       </div>
     </div>
   `;
+}
+
+async function saveSyncConfig() {
+  const btn = document.querySelector('#tab-sync .btn-save:last-of-type');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  const updates = {};
+  document.querySelectorAll('#tab-sync [data-key]').forEach(el => {
+    if (el.type === 'checkbox') {
+      updates[el.dataset.key] = el.checked;
+    } else if (el.dataset.sensitive === 'true' && !el.value.trim()) {
+      // 空敏感字段不覆盖
+    } else {
+      updates[el.dataset.key] = el.value;
+    }
+  });
+  try {
+    const res = await fetch(`${API_BASE}/config`, {
+      method: 'PUT',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    showToast('保存成功，重启 API 后生效', 'success');
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '保存配置'; }
+  }
 }
 
 async function triggerSync() {
@@ -1139,6 +1187,12 @@ function showToast(msg, type = 'info') {
 
 // ===== Init =====
 (async function init() {
+  // 绑定登录事件
+  document.getElementById('loginBtn').addEventListener('click', handleLogin);
+  document.getElementById('loginInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
+
   adminToken = getToken();
   if (adminToken) {
     const valid = await verifyToken(adminToken);

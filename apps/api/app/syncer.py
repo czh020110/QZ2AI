@@ -39,8 +39,8 @@ def _write_state(state: dict) -> None:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def _coscli_sync(settings) -> bool:
-    """执行 coscli sync，返回是否成功"""
+def _coscli_sync(settings) -> tuple[bool, bool]:
+    """执行 coscli sync，返回 (成功, 有变更)"""
     cos_sync_source = ""
     if settings.cos_bucket and settings.notes_cos_prefix:
         prefix = settings.notes_cos_prefix.strip("/")
@@ -48,7 +48,7 @@ def _coscli_sync(settings) -> bool:
 
     if not cos_sync_source:
         logger.info("未配置 COS 同步源，跳过")
-        return True
+        return True, False
 
     # 生成临时 coscli 配置
     import tempfile
@@ -85,12 +85,13 @@ def _coscli_sync(settings) -> bool:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
             logger.error("COS 同步失败: %s", result.stderr[:500])
-            return False
-        logger.info("COS 同步完成")
-        return True
+            return False, False
+        changed = bool(result.stdout.strip())
+        logger.info("COS 同步完成，有变更: %s", changed)
+        return True, changed
     except Exception as e:
         logger.error("COS 同步异常: %s", e)
-        return False
+        return False, False
     finally:
         if config_file:
             try:
@@ -140,6 +141,23 @@ def _syncer_loop() -> None:
             syncing = state.get("syncing", False)
             debounce_until = state.get("debounce_until", 0)
 
+            # 定时同步：距上次同步超过间隔则自动触发
+            interval = settings.sync_interval_seconds
+            if interval > 0 and not pending and not syncing:
+                last_sync_at = state.get("last_sync_at", "")
+                if last_sync_at:
+                    from datetime import timezone
+                    last_dt = datetime.fromisoformat(last_sync_at)
+                    elapsed = (datetime.now() - last_dt).total_seconds()
+                else:
+                    elapsed = interval  # 从未同步过，立即触发
+                if elapsed >= interval:
+                    logger.info("定时同步触发，距上次同步 %.0fs", elapsed)
+                    state["pending"] = True
+                    state["debounce_until"] = 0
+                    _write_state(state)
+                    pending = True
+
             if not pending or syncing or time.time() < debounce_until:
                 time.sleep(POLL_INTERVAL)
                 continue
@@ -151,18 +169,22 @@ def _syncer_loop() -> None:
             sync_status = "success"
 
             # 1. COS 同步
-            if not _coscli_sync(settings):
+            ok, changed = _coscli_sync(settings)
+            if not ok:
                 sync_status = "sync_failed"
 
-            # 2. 索引重建
-            if not _trigger_reindex():
-                if sync_status == "success":
-                    sync_status = "reindex_failed"
+            if ok and not changed:
+                logger.info("无文件变更，跳过 reindex 和构建")
+            else:
+                # 2. 索引重建
+                if not _trigger_reindex():
+                    if sync_status == "success":
+                        sync_status = "reindex_failed"
 
-            # 3. Quartz 重建
-            if not _trigger_web_rebuild():
-                if sync_status == "success":
-                    sync_status = "build_failed"
+                # 3. Quartz 重建
+                if not _trigger_web_rebuild():
+                    if sync_status == "success":
+                        sync_status = "build_failed"
 
             # 4. 清除 pending
             state = _read_state()
