@@ -13,8 +13,8 @@ from .config import get_settings
 from .database import init_db
 from .errors import AppError
 from .indexer import get_chroma_collection, reindex
-from .models import ChatRequest, ErrorResponse, HealthResponse, ReindexResponse
-from .admin import router as admin_router
+from .models import ChatRequest, ErrorResponse, HealthResponse, ReindexResponse, WebhookResponse
+from .admin import router as admin_router, verify_webhook, trigger_sync_pending
 
 logger = logging.getLogger("api")
 
@@ -122,3 +122,18 @@ def reindex_endpoint(x_reindex_token: str | None = Header(default=None)) -> Rein
     if not s.reindex_token or x_reindex_token != s.reindex_token:
         raise AppError(status.HTTP_401_UNAUTHORIZED, "unauthorized", "无效的 reindex token")
     return ReindexResponse(**reindex())
+
+
+# 通用同步 webhook：供 GitHub Actions / 其他外部 Source 触发，对应工作流中的 /api/webhook/sync。
+# 鉴权：X-Webhook-Secret（或 query/body 里的 secret）匹配 webhook_secret，否则回退 admin token。
+@app.post("/api/webhook/sync", response_model=WebhookResponse)
+def webhook_sync(
+    secret: str | None = None,
+    x_webhook_secret: str | None = Header(default=None),
+    x_admin_token: str | None = Header(default=None),
+) -> WebhookResponse:
+    verify_webhook(x_webhook_secret, x_admin_token, secret)
+    s = get_settings()
+    if not s.auto_sync_enabled:
+        raise AppError(status.HTTP_403_FORBIDDEN, "forbidden", "自动同步未启用")
+    return trigger_sync_pending(s)

@@ -247,6 +247,31 @@ def _write_sync_state(state: dict[str, Any]) -> None:
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
+def _trigger_sync_pending(s) -> WebhookResponse:
+    """置 pending=true 并设置防抖窗口，返回接收回执。
+
+    webhook 入口（COS/GitHub）鉴权通过后都走这里，确保 pending 状态写入格式一致。
+    """
+    state = _read_sync_state()
+    state["pending"] = True
+    state["syncing"] = False
+    state["debounce_until"] = time.time() + s.debounce_seconds
+    state["triggered_at"] = datetime.now().isoformat()
+    state["event_count"] = state.get("event_count", 0) + 1
+    _write_sync_state(state)
+    return WebhookResponse(status="accepted", message="同步任务已接收，等待防抖窗口结束后执行")
+
+
+def verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secret: str | None = None) -> None:
+    """webhook 鉴权：webhook_secret 匹配则放行，否则回退到 admin token。对外暴露供 main 调用。"""
+    _verify_webhook(x_webhook_secret, x_admin_token, secret)
+
+
+def trigger_sync_pending(s) -> WebhookResponse:
+    """对外暴露的 pending 触发入口，供 main 的通用 webhook 路由复用。"""
+    return _trigger_sync_pending(s)
+
+
 def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secret: str | None = None) -> None:
     s = get_settings()
     if s.webhook_secret and (x_webhook_secret == s.webhook_secret or secret == s.webhook_secret):
@@ -273,7 +298,6 @@ def cos_webhook(
         prefix = s.notes_cos_prefix.lstrip("/")
         matched = False
         for record in records:
-            key = ""
             cos_obj = record.get("cos", {}).get("cosObject", {})
             if not cos_obj:
                 cos_obj = record.get("cosObject", {})
@@ -287,15 +311,7 @@ def cos_webhook(
         if not matched and records:
             return WebhookResponse(status="ignored", message="事件不在监听前缀范围内")
 
-    state = _read_sync_state()
-    state["pending"] = True
-    state["syncing"] = False
-    state["debounce_until"] = time.time() + s.debounce_seconds
-    state["triggered_at"] = datetime.now().isoformat()
-    state["event_count"] = state.get("event_count", 0) + 1
-    _write_sync_state(state)
-
-    return WebhookResponse(status="accepted", message="同步任务已接收，等待防抖窗口结束后执行")
+    return _trigger_sync_pending(s)
 
 
 @router.get("/sync-status", response_model=SyncStatusResponse)
@@ -330,7 +346,13 @@ WORKFLOW_PATH = ".github/workflows/blog-sync.yml"
 
 
 def _validate_github_config(s) -> tuple:
-    """验证 GitHub 配置是否完整，返回 (有效, 错误消息)"""
+    """验证 GitHub 配置是否完整且远程源已切换到 GitHub，返回 (有效, 错误消息)。
+
+    工作流只会触发 /api/webhook/sync，真正拉取走 _remote_sync()，后者依赖 remote_type=github；
+    若未切换远程源，工作流触发后 syncer 会走 COS 分支导致行为错位，因此在此提前拦截。
+    """
+    if s.remote_type != "github":
+        return False, "远程源未切换到 GitHub (当前 remote_type=" + (s.remote_type or "未设置") + ")，请先在[自动同步]中选择 GitHub 并保存"
     if not s.github_repo_url:
         return False, "未配置 GitHub 仓库地址 (github_repo_url)"
     if not s.github_token:
