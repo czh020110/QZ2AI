@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     db_path: str = "/data/blog.db"
     chroma_collection: str = "blog"
 
+    # 远程同步配置：支持 COS 或 GitHub
+    remote_type: str = Field(default="cos", pattern="^(cos|github)$")
+
     # COS 笔记同步：notes_cos_prefix 指定 OSS 中的笔记文件夹路径
     # sync.sh 会根据 cos_bucket + notes_cos_prefix 拼出完整 COS_SYNC_SOURCE
     cos_secret_id: str = ""
@@ -38,6 +41,12 @@ class Settings(BaseSettings):
     cos_endpoint: str = "cos.ap-shanghai.myqcloud.com"
     cos_bucket: str = ""
     notes_cos_prefix: str = ""
+
+    # GitHub 笔记同步：只读拉取，不允许本地提交推送
+    github_repo_url: str = ""
+    github_branch: str = "main"
+    notes_github_prefix: str = ""  # 仓库内笔记子目录，如 blog/online（留空表示根目录）
+    github_token: str = ""  # GitHub Personal Access Token（私有仓库需要）
 
     # 附件文件夹名列表（逗号分隔），这些文件夹不会被索引为博客文章
     # 但仍会被同步下载和 Quartz 构建复制，保证文章中的图片正常显示
@@ -48,7 +57,16 @@ class Settings(BaseSettings):
     webhook_secret: str = ""
     debounce_seconds: int = Field(default=30, ge=5, le=300)
     # 定时同步间隔（秒），0 表示禁用定时同步，仅靠 webhook 触发
-    sync_interval_seconds: int = Field(default=0, ge=0)
+    sync_interval_seconds: int = Field(default=1800, ge=0)
+
+    # 反馈邮件通知
+    notify_enabled: bool = False
+    notify_interval_seconds: int = Field(default=1800, ge=60, le=86400)  # 检查间隔，默认30分钟
+    notify_email: str = ""  # 接收通知的邮箱
+    mail_server: str = ""
+    mail_port: int = 465
+    mail_username: str = ""
+    mail_password: str = ""  # SMTP 授权码/应用专用密码
 
     similarity_top_k: int = 5
     llm_mock: bool = False
@@ -82,6 +100,8 @@ class Settings(BaseSettings):
             "cos_secret_id",
             "cos_secret_key",
             "webhook_secret",
+            "github_token",
+            "mail_password",
         }
 
 
@@ -89,3 +109,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    """清除配置缓存，使下次调用 get_settings() 重新读取 .env"""
+    get_settings.cache_clear()

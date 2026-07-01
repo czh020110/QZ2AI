@@ -12,12 +12,17 @@ services:
       - "18088:80"
     volumes:
       - ./data:/data
+      - ./.env:/app/.env  # 挂载 .env 使配置保存重启后不丢失
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/project:ro
       - public:/usr/share/nginx/html:ro
       - ./apps/admin:/usr/share/nginx/admin:ro
     environment:
       - PROJECT_DIR=/project
+      - https_proxy=${https_proxy:-}
+      - http_proxy=${http_proxy:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - HTTP_PROXY=${HTTP_PROXY:-}
     restart: unless-stopped
     depends_on:
       web:

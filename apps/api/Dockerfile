@@ -6,9 +6,9 @@ FROM python:3.12-slim
 # 使用腾讯云镜像源加速 apt
 RUN sed -i 's|deb.debian.org|mirrors.tencentyun.com|g' /etc/apt/sources.list.d/debian.sources
 
-# 安装 nginx + curl
+# 安装 nginx + curl + git（git 用于 GitHub 同步）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    nginx curl && rm -rf /var/lib/apt/lists/*
+    nginx curl git && rm -rf /var/lib/apt/lists/*
 
 # 安装 docker CLI + compose 插件（多阶段从 docker:27-cli 复制）
 COPY --from=docker:27-cli /usr/local/bin/docker /usr/local/bin/docker

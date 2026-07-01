@@ -100,6 +100,122 @@ def _coscli_sync(settings) -> tuple[bool, bool]:
                 pass
 
 
+def _github_sync(settings) -> tuple[bool, bool]:
+    """执行 GitHub 只读同步，返回 (成功, 有变更)"""
+    if not settings.github_repo_url:
+        logger.info("未配置 GitHub 仓库 URL，跳过")
+        return True, False
+
+    notes_dir = Path(settings.notes_dir)
+    git_dir = notes_dir / ".git"
+
+    # 配置 git 使用代理（如果环境变量中有配置）
+    git_env = os.environ.copy()
+    if "https_proxy" in git_env or "HTTPS_PROXY" in git_env:
+        proxy_url = git_env.get("https_proxy") or git_env.get("HTTPS_PROXY")
+        logger.info("使用代理: %s", proxy_url)
+
+    # 如果配置了 GitHub Token，在 URL 中注入认证信息
+    repo_url = settings.github_repo_url
+    if settings.github_token and "github.com" in repo_url:
+        # 将 https://github.com/user/repo.git 转换为 https://TOKEN@github.com/user/repo.git
+        if repo_url.startswith("https://github.com/"):
+            repo_url = repo_url.replace("https://github.com/", f"https://{settings.github_token}@github.com/")
+            logger.info("使用 GitHub Token 认证")
+
+    try:
+        # 检查是否已经是 git 仓库
+        if not git_dir.exists():
+            # 首次克隆
+            notes_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("首次克隆 GitHub 仓库: %s → %s", settings.github_repo_url, notes_dir)
+            cmd = [
+                "git", "clone", "--depth", "1",
+                "--branch", settings.github_branch,
+                repo_url, str(notes_dir)
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=git_env)
+            if result.returncode != 0:
+                logger.error("GitHub 克隆失败: %s", result.stderr[:500])
+                return False, False
+            logger.info("GitHub 克隆完成")
+            return True, True  # 首次克隆视为有变更
+
+        # 已存在仓库，执行拉取
+        logger.info("拉取 GitHub 仓库更新: %s", settings.github_repo_url)
+
+        # 丢弃本地变更（只读模式）
+        reset_cmd = ["git", "-C", str(notes_dir), "reset", "--hard", "HEAD"]
+        subprocess.run(reset_cmd, capture_output=True, text=True, timeout=30, env=git_env)
+
+        # 清理未跟踪文件
+        clean_cmd = ["git", "-C", str(notes_dir), "clean", "-fd"]
+        subprocess.run(clean_cmd, capture_output=True, text=True, timeout=30, env=git_env)
+
+        # 更新 remote URL（以防 token 变更）
+        if settings.github_token:
+            set_url_cmd = ["git", "-C", str(notes_dir), "remote", "set-url", "origin", repo_url]
+            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+
+        # 记录拉取前的 commit
+        old_commit_cmd = ["git", "-C", str(notes_dir), "rev-parse", "HEAD"]
+        old_result = subprocess.run(old_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        old_commit = old_result.stdout.strip() if old_result.returncode == 0 else ""
+
+        # 拉取最新代码
+        pull_cmd = ["git", "-C", str(notes_dir), "pull", "--rebase", "origin", settings.github_branch]
+        result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
+        if result.returncode != 0:
+            logger.error("GitHub 拉取失败: %s", result.stderr[:500])
+            return False, False
+
+        # 记录拉取后的 commit
+        new_commit_cmd = ["git", "-C", str(notes_dir), "rev-parse", "HEAD"]
+        new_result = subprocess.run(new_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        new_commit = new_result.stdout.strip() if new_result.returncode == 0 else ""
+
+        changed = (old_commit != new_commit)
+        logger.info("GitHub 拉取完成，有变更: %s (旧: %s, 新: %s)", changed, old_commit[:8], new_commit[:8])
+
+        # 如果配置了子目录，需要处理文件移动
+        if changed and settings.notes_github_prefix:
+            subdir = notes_dir / settings.notes_github_prefix.strip("/")
+            if subdir.exists() and subdir != notes_dir:
+                logger.info("处理子目录: %s", settings.notes_github_prefix)
+                # 临时移动文件（保留 .git）
+                import tempfile
+                import shutil
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    tmp_path = Path(tmpdir) / "notes"
+                    shutil.move(str(subdir), str(tmp_path))
+                    # 清理 notes_dir 除了 .git 外的所有文件
+                    for item in notes_dir.iterdir():
+                        if item.name != ".git":
+                            if item.is_dir():
+                                shutil.rmtree(item)
+                            else:
+                                item.unlink()
+                    # 移动回来
+                    for item in tmp_path.iterdir():
+                        shutil.move(str(item), str(notes_dir / item.name))
+
+        return True, changed
+    except Exception as e:
+        logger.error("GitHub 同步异常: %s", e)
+        return False, False
+
+
+def _remote_sync(settings) -> tuple[bool, bool]:
+    """根据配置的远程类型执行同步，返回 (成功, 有变更)"""
+    if settings.remote_type == "github":
+        return _github_sync(settings)
+    elif settings.remote_type == "cos":
+        return _coscli_sync(settings)
+    else:
+        logger.error("未知的远程类型: %s", settings.remote_type)
+        return False, False
+
+
 def _trigger_reindex() -> bool:
     """直接调用 reindex()，不需要走 HTTP"""
     try:
@@ -131,45 +247,66 @@ def _trigger_web_rebuild() -> bool:
 
 def _syncer_loop() -> None:
     """syncer 后台线程主循环"""
-    settings = get_settings()
     logger.info("syncer 线程启动，轮询间隔: %ds", POLL_INTERVAL)
 
+    # 启动时恢复卡死的状态：如果 syncing=true 但进程已重启，说明上次同步中断，重置
+    startup_state = _read_state()
+    if startup_state.get("syncing"):
+        logger.warning("检测到卡死状态（syncing=true），重置为待同步")
+        startup_state["syncing"] = False
+        startup_state["pending"] = True
+        startup_state["debounce_until"] = 0
+        _write_state(startup_state)
+
     while True:
+        settings = get_settings()
         try:
             state = _read_state()
             pending = state.get("pending", False)
             syncing = state.get("syncing", False)
             debounce_until = state.get("debounce_until", 0)
 
-            # 定时同步：距上次同步超过间隔则自动触发
-            interval = settings.sync_interval_seconds
-            if interval > 0 and not pending and not syncing:
-                last_sync_at = state.get("last_sync_at", "")
-                if last_sync_at:
-                    from datetime import timezone
-                    last_dt = datetime.fromisoformat(last_sync_at)
-                    elapsed = (datetime.now() - last_dt).total_seconds()
-                else:
-                    elapsed = interval  # 从未同步过，立即触发
-                if elapsed >= interval:
-                    logger.info("定时同步触发，距上次同步 %.0fs", elapsed)
-                    state["pending"] = True
-                    state["debounce_until"] = 0
-                    _write_state(state)
-                    pending = True
+            # 定时同步：需同时满足 auto_sync_enabled 开启 且 interval > 0
+            if settings.auto_sync_enabled:
+                interval = settings.sync_interval_seconds
+                if interval > 0 and not pending and not syncing:
+                    last_sync_at = state.get("last_sync_at", "")
+                    if last_sync_at:
+                        from datetime import timezone
+                        last_dt = datetime.fromisoformat(last_sync_at)
+                        elapsed = (datetime.now() - last_dt).total_seconds()
+                    else:
+                        elapsed = interval  # 从未同步过，立即触发
+                    if elapsed >= interval:
+                        logger.info("定时同步触发，距上次同步 %.0fs", elapsed)
+                        state["pending"] = True
+                        state["debounce_until"] = 0
+                        _write_state(state)
+                        pending = True
 
             if not pending or syncing or time.time() < debounce_until:
-                time.sleep(POLL_INTERVAL)
-                continue
+                # 安全网：同步状态卡死超过 10 分钟自动重置
+                if syncing and state.get("syncing_started_at", 0):
+                    elapsed = time.time() - state["syncing_started_at"]
+                    if elapsed > 600:
+                        logger.warning("同步超时（%.0fs），重置卡死状态", elapsed)
+                        state["syncing"] = False
+                        state["syncing_started_at"] = 0
+                        syncing = False
+                        _write_state(state)
+                if not pending or syncing or time.time() < debounce_until:
+                    time.sleep(POLL_INTERVAL)
+                    continue
 
             logger.info("检测到待同步任务，防抖窗口已过期，开始执行")
             state["syncing"] = True
+            state["syncing_started_at"] = time.time()
             _write_state(state)
 
             sync_status = "success"
 
-            # 1. COS 同步
-            ok, changed = _coscli_sync(settings)
+            # 1. 远程同步（COS 或 GitHub）
+            ok, changed = _remote_sync(settings)
             if not ok:
                 sync_status = "sync_failed"
 
@@ -190,6 +327,7 @@ def _syncer_loop() -> None:
             state = _read_state()
             state["pending"] = False
             state["syncing"] = False
+            state["syncing_started_at"] = 0
             state["last_sync_at"] = datetime.now().isoformat()
             state["last_sync_status"] = sync_status
             _write_state(state)

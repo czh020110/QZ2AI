@@ -708,7 +708,7 @@ body {
   <div id="tab-sync" class="hidden">
     <div class="page-header">
       <h2>自动同步</h2>
-      <p>COS 文件变动时自动触发同步与重建</p>
+      <p>远程笔记变动时自动触发同步与重建</p>
     </div>
     <div class="page-content" id="syncContent">
       <div class="spinner"></div>
@@ -899,9 +899,16 @@ function groupConfig(items) {
     http_retry_backoff_seconds: '超时与重试', embedding_batch_size: '超时与重试',
     reindex_token: '安全 Token', admin_token: '安全 Token',
     allowed_origins: 'CORS',
+    remote_type: '远程同步',
     cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
     cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
     cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
+    github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
+    notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
+    notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
+    notify_email: '邮件通知', mail_server: '邮件通知',
+    mail_port: '邮件通知', mail_username: '邮件通知',
+    mail_password: '邮件通知',
   };
   // 这些字段在同步标签页管理，不显示在环境配置中
   const syncOnlyKeys = new Set(['auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds']);
@@ -928,7 +935,18 @@ function renderConfig(items) {
       const isSensitive = f.sensitive;
       const inputType = f.type === 'bool' ? 'checkbox' : 'text';
       const value = f.type === 'bool' ? (f.value === true || f.value === 'True' || f.value === 'true') : f.value;
-      if (inputType === 'checkbox') {
+
+      // remote_type 使用下拉选择器
+      if (f.key === 'remote_type') {
+        html += `<div class="config-item">
+          <label class="config-label">${esc(f.key)}</label>
+          <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
+            <option value="cos" ${value === 'cos' ? 'selected' : ''}>COS（腾讯云对象存储）</option>
+            <option value="github" ${value === 'github' ? 'selected' : ''}>GitHub（代码仓库）</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">切换后即时生效</div>
+        </div>`;
+      } else if (inputType === 'checkbox') {
         html += `<div class="config-item">
           <label class="config-label">${esc(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
@@ -951,20 +969,21 @@ function renderConfig(items) {
   }
 
   html += `<div class="config-footer">
-    <button class="btn-save" onclick="saveConfig()">保存配置</button>
-    <span class="save-hint">修改后需重启 API 服务生效</span>
+    <button class="btn-save" id="configSaveBtn" onclick="saveConfig()">保存配置</button>
+    <span class="save-hint">修改后即时生效</span>
   </div>`;
 
   content.innerHTML = html;
 }
 
 async function saveConfig() {
-  const btn = document.querySelector('.btn-save');
+  const btn = document.getElementById('configSaveBtn');
   btn.disabled = true;
   btn.textContent = '保存中...';
 
   const updates = {};
-  document.querySelectorAll('.config-input').forEach(input => {
+  // 处理文本输入框
+  document.querySelectorAll('.config-input[type="text"]').forEach(input => {
     const key = input.dataset.key;
     const isSensitive = input.dataset.sensitive === 'true';
     // 敏感字段未修改（值仍为 ****）则跳过
@@ -973,6 +992,14 @@ async function saveConfig() {
       updates[key] = input.value;
     }
   });
+  // 处理下拉选择框
+  document.querySelectorAll('.config-input').forEach(el => {
+    if (el.tagName === 'SELECT') {
+      const key = el.dataset.key;
+      updates[key] = el.value;
+    }
+  });
+  // 处理复选框
   document.querySelectorAll('.config-item input[type="checkbox"]').forEach(cb => {
     updates[cb.dataset.key] = cb.checked ? 'true' : 'false';
   });
@@ -992,7 +1019,7 @@ async function saveConfig() {
     });
     if (!res.ok) throw new Error(`${res.status}`);
     const result = await res.json();
-    showToast(result.message || '配置已更新，需重启 API 服务生效', 'success');
+    showToast(result.message || '配置已更新，即时生效', 'success');
     loadConfig();
   } catch (e) {
     showToast('保存失败：' + e.message, 'error');
@@ -1018,6 +1045,7 @@ async function loadSync() {
     const status = await statusRes.json();
     const config = await configRes.json();
     renderSync(status, config);
+    loadGitHubWorkflow();
   } catch (e) {
     content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
   }
@@ -1058,6 +1086,8 @@ function renderSync(status, config) {
   const syncKeys = ['auto_sync_enabled', 'sync_interval_seconds', 'debounce_seconds', 'webhook_secret'];
   const syncLabels = {
     auto_sync_enabled: '定时同步开关', sync_interval_seconds: '定时同步间隔（秒，0=禁用）', debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥' };
+  const notifyKeys = ['notify_enabled', 'notify_interval_seconds', 'notify_email', 'mail_server', 'mail_port', 'mail_username', 'mail_password'];
+  const remoteTypVal = findVal('remote_type') || 'cos';
 
   let configHtml = '';
   syncKeys.forEach(key => {
@@ -1081,11 +1111,40 @@ function renderSync(status, config) {
       </div>`;
     }
   });
+  // 通知配置
+  const notifyLabels = {
+    notify_enabled: '启用邮件通知', notify_interval_seconds: '检查间隔（秒，默认1800）',
+    notify_email: '接收通知邮箱', mail_server: 'SMTP 服务器',
+    mail_port: 'SMTP 端口', mail_username: '发件邮箱',
+    mail_password: 'SMTP 密码/授权码',
+  };
+  let notifyHtml = '';
+  notifyKeys.forEach(key => {
+    const val = findVal(key);
+    const sensitive = findSensitive(key);
+    const label = notifyLabels[key] || key;
+    if (key === 'notify_enabled') {
+      const checked = isBool(val);
+      notifyHtml += `<div class="config-item">
+        <label class="config-label">${esc(label)}</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
+          <input type="checkbox" data-key="${key}" ${checked ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px">
+          <span style="font-size:.78rem;color:var(--text-secondary)">${checked ? '已开启' : '已关闭'}</span>
+        </label>
+      </div>`;
+    } else {
+      notifyHtml += `<div class="config-item">
+        <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
+        <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+          value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
+      </div>`;
+    }
+  });
 
   content.innerHTML = `
     <div class="config-section">
       <div class="config-section-title">同步状态</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
         <div class="config-item">
           <span class="config-label">当前状态</span>
           <span class="tag ${stateCls}" id="syncStatusBadge" style="margin-top:4px;display:inline-block">${stateLabel}</span>
@@ -1095,35 +1154,65 @@ function renderSync(status, config) {
           <span id="syncLastTime" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.last_sync_at ? formatTime(status.last_sync_at) : '—'}</span>
         </div>
         <div class="config-item">
-          <span class="config-label">待处理事件</span>
-          <span id="syncEventCount" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.event_count || 0}</span>
+          <span class="config-label">上次状态</span>
+          <span id="syncLastStatus" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.last_sync_status || '—'}</span>
         </div>
       </div>
       <div style="display:flex;gap:12px;align-items:center">
         <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
           ${status.syncing ? '同步中...' : '手动触发同步'}
         </button>
-        <span class="save-hint">触发后将执行 COS 拉取 → 索引重建 → Quartz 构建</span>
+        <span class="save-hint">远程拉取 → 索引重建 → Quartz 构建</span>
       </div>
     </div>
+
     <div class="config-section">
-      <div class="config-section-title">同步配置</div>
-      <div class="config-grid">${configHtml}</div>
-      <div class="config-footer">
-        <button class="btn-save" onclick="saveSyncConfig()">保存配置</button>
-        <span class="save-hint">修改后需重启 API 服务生效</span>
+      <div class="config-section-title">远程源</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">同步方式</label>
+          <select class="config-input" data-key="remote_type" style="cursor:pointer;max-width:320px">
+            <option value="cos" ${remoteTypVal==='cos'?'selected':''}>COS（腾讯云对象存储）</option>
+            <option value="github" ${remoteTypVal==='github'?'selected':''}>GitHub（代码仓库）</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text-secondary);margin-top:4px">
+            ${remoteTypVal==='github' ? '从 GitHub 仓库拉取笔记（只读）' : '从 COS 存储桶拉取笔记'}
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">同步策略</div>
+      <div class="config-grid">${configHtml}</div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">反馈通知（邮件）</div>
+      <div class="config-grid">${notifyHtml}</div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">GitHub Actions 自动化</div>
+      <div id="githubWorkflowStatus" style="padding:4px 0">
+        <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:12px;align-items:center">
+      <button class="btn-save" id="syncSaveBtn" onclick="saveSyncConfig()">保存同步配置</button>
+      <span class="save-hint">保存后即时生效</span>
     </div>
   `;
 }
 
 async function saveSyncConfig() {
-  const btn = document.querySelector('#tab-sync .btn-save:last-of-type');
-  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  const btn = document.getElementById('syncSaveBtn');
+  btn.disabled = true; btn.textContent = '保存中...';
   const updates = {};
   document.querySelectorAll('#tab-sync [data-key]').forEach(el => {
     if (el.type === 'checkbox') {
-      updates[el.dataset.key] = el.checked;
+      updates[el.dataset.key] = el.checked ? 'true' : 'false';
     } else if (el.dataset.sensitive === 'true' && !el.value.trim()) {
       // 空敏感字段不覆盖
     } else {
@@ -1137,11 +1226,12 @@ async function saveSyncConfig() {
       body: JSON.stringify(updates)
     });
     if (!res.ok) throw new Error(`${res.status}`);
-    showToast('保存成功，重启 API 后生效', 'success');
+    showToast('保存成功，即时生效', 'success');
+    loadSync();
   } catch (e) {
     showToast('保存失败：' + e.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '保存配置'; }
+    btn.disabled = false; btn.textContent = '保存同步配置';
   }
 }
 
@@ -1157,6 +1247,82 @@ async function triggerSync() {
     loadSync();
   } catch (e) {
     showToast('触发失败：' + e.message, 'error');
+  }
+}
+
+// ===== GitHub Actions 自动化 =====
+async function loadGitHubWorkflow() {
+  const el = document.getElementById('githubWorkflowStatus');
+  el.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:2px"></div>';
+  try {
+    const res = await fetch(`${API_BASE}/github/workflow`, {
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    const data = await res.json();
+    renderGitHubWorkflow(data);
+  } catch (e) {
+    el.innerHTML = `<div class="error-msg">加载失败：${esc(e.message)}</div>`;
+  }
+}
+
+function renderGitHubWorkflow(data) {
+  const el = document.getElementById('githubWorkflowStatus');
+  if (data.status === 'not_configured') {
+    el.innerHTML = `
+      <p style="color:var(--text-muted);padding:12px 0">${esc(data.message)}</p>
+      <p style="font-size:.78rem;color:var(--text-secondary)">请在「环境配置」中设置 GitHub 仓库信息、Token 和 Webhook 密钥后使用</p>`;
+    return;
+  }
+  if (data.status === 'error') {
+    el.innerHTML = `<div class="error-msg">错误：${esc(data.message)}</div>`;
+    return;
+  }
+  const exists = data.exists;
+  const statusLabel = exists ? '已配置' : '未创建';
+  const statusCls = exists ? 'tag-resolved' : 'tag-other';
+  const btnText = exists ? '更新工作流' : '创建工作流';
+  const preview = data.expected || '';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <span class="tag ${statusCls}">${statusLabel}</span>
+      <span style="font-size:.82rem;color:var(--text-secondary)">${esc(data.message || (exists ? '仓库中已有博客同步工作流' : '仓库中尚未创建工作流文件'))}</span>
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="config-label" style="margin-bottom:6px">工作流预览（触发路径：${esc(findWorkflowPrefix())}）</div>
+      <pre style="background:var(--bg-input);color:var(--text-secondary);padding:12px;border-radius:var(--radius-sm);font-size:.75rem;overflow-x:auto;max-height:300px;overflow-y:auto;font-family:'JetBrains Mono',monospace;line-height:1.5;white-space:pre-wrap">${esc(preview)}</pre>
+    </div>
+    <button class="btn-save" onclick="upsertGitHubWorkflow()">${btnText}</button>
+    <span class="save-hint" style="margin-left:8px">在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml</span>`;
+}
+
+function findWorkflowPrefix() {
+  // 用 notes_github_prefix，回退到「仓库根目录」
+  try {
+    const items = document.querySelectorAll('#tab-sync [data-key]');
+    for (const el of items) { if (el.dataset.key === 'notes_github_prefix' && el.value.trim()) return el.value.trim() + '/**.md'; }
+    for (const el of items) { if (el.dataset.key === 'notes_github_prefix' && el.value.trim() === '') return '全部 .md 文件'; }
+  } catch {}
+  return '根据配置';
+}
+
+async function upsertGitHubWorkflow() {
+  const btn = document.querySelector('#githubWorkflowStatus .btn-save');
+  if (btn) { btn.disabled = true; btn.textContent = '执行中...'; }
+  try {
+    const res = await fetch(`${API_BASE}/github/workflow`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || `${res.status}`);
+    }
+    showToast('GitHub Actions 工作流已创建/更新', 'success');
+    loadGitHubWorkflow();
+  } catch (e) {
+    showToast('操作失败：' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '重试'; }
   }
 }
 

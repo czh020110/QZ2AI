@@ -27,6 +27,8 @@ def _startup() -> None:
     init_db()
     from .syncer import start_syncer_thread
     start_syncer_thread()
+    from .notifier import start_notifier_thread
+    start_notifier_thread()
 
 
 settings = get_settings()

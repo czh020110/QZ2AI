@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime
 import fcntl
 import json
@@ -12,6 +13,9 @@ from pydantic import BaseModel
 from .config import get_settings
 from .database import get_connection
 from .models import SyncStatusResponse, WebhookResponse
+import logging
+
+logger = logging.getLogger("admin")
 
 router = APIRouter(prefix="/admin/api", tags=["admin"])
 
@@ -128,7 +132,7 @@ def update_config(
                     continue
                 if "=" in line:
                     k, _, v = line.partition("=")
-                    existing[k.strip()] = v.strip()
+                    existing[k.strip().upper()] = v.strip()
     except FileNotFoundError:
         pass
 
@@ -140,7 +144,7 @@ def update_config(
         # 敏感字段：**** 表示不修改，只有非 **** 值才覆盖
         if is_sensitive and new_value == "****":
             continue
-        existing[key] = new_value
+        existing[key.upper()] = new_value
         updated_keys.append(key)
 
     if not updated_keys:
@@ -178,10 +182,18 @@ def update_config(
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
 
+    # 同步更新当前进程环境变量 + 清除配置缓存
+    # Docker compose 通过 env_file 注入的变量优先于文件，须同步更新 os.environ
+    for key in updated_keys:
+        os.environ[key.upper()] = str(existing[key.upper()])
+
+    from .config import clear_settings_cache
+    clear_settings_cache()
+
     return {
         "status": "ok",
         "updated": updated_keys,
-        "message": "配置已更新，需重启 API 服务生效",
+        "message": "配置已更新并即时生效",
     }
 
 
@@ -310,3 +322,91 @@ def update_sync_status(
                 state[key] = body[key]
     _write_sync_state(state)
     return SyncStatusResponse(**state)
+
+
+# ============================ GitHub Actions 工作流管理 ============================ #
+
+WORKFLOW_PATH = ".github/workflows/blog-sync.yml"
+
+
+def _validate_github_config(s) -> tuple:
+    """验证 GitHub 配置是否完整，返回 (有效, 错误消息)"""
+    if not s.github_repo_url:
+        return False, "未配置 GitHub 仓库地址 (github_repo_url)"
+    if not s.github_token:
+        return False, "未配置 GitHub Token (github_token)"
+    if not s.webhook_secret:
+        return False, '未配置 Webhook 密钥 (webhook_secret)，请先在[自动同步]配置中设置'
+    return True, ""
+
+
+@router.get("/github/workflow")
+def get_github_workflow(
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """检查博客同步工作流是否已存在于笔记仓库中"""
+    _verify_admin(x_admin_token)
+    s = get_settings()
+
+    ok, msg = _validate_github_config(s)
+    if not ok:
+        return {"status": "not_configured", "message": msg, "exists": False, "current": None, "expected": None}
+
+    try:
+        from .github_client import get_file, build_sync_workflow
+
+        existing = get_file(s.github_token, s.github_repo_url, s.github_branch, WORKFLOW_PATH)
+        blog_url = s.allowed_origin_list[0] if s.allowed_origin_list else "http://localhost"
+        expected = build_sync_workflow(s.github_branch, s.notes_github_prefix, blog_url, s.webhook_secret)
+        current_content = None
+        if existing and existing.get("content"):
+            current_content = base64.b64decode(existing["content"]).decode("utf-8")
+
+        return {
+            "status": "ok",
+            "message": "",
+            "exists": existing is not None,
+            "current": current_content,
+            "expected": expected,
+        }
+    except Exception as e:
+        logger.exception("获取 GitHub 工作流状态失败")
+        return {"status": "error", "message": str(e), "exists": False, "current": None, "expected": None}
+
+
+@router.post("/github/workflow")
+def upsert_github_workflow(
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """在笔记仓库中创建或更新博客同步工作流"""
+    _verify_admin(x_admin_token)
+    s = get_settings()
+
+    ok, msg = _validate_github_config(s)
+    if not ok:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, msg)
+
+    try:
+        from .github_client import build_sync_workflow, put_file
+
+        blog_url = s.allowed_origin_list[0] if s.allowed_origin_list else "http://localhost"
+        content = build_sync_workflow(s.github_branch, s.notes_github_prefix, blog_url, s.webhook_secret)
+
+        result = put_file(
+            token=s.github_token,
+            repo_url=s.github_repo_url,
+            branch=s.github_branch,
+            path=WORKFLOW_PATH,
+            content=content,
+            message="添加/更新博客自动同步 Actions 工作流",
+        )
+
+        return {
+            "status": "ok",
+            "message": "工作流已创建/更新",
+            "path": WORKFLOW_PATH,
+            "url": result.get("content", {}).get("html_url", ""),
+        }
+    except Exception as e:
+        logger.exception("创建 GitHub 工作流失败")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"操作失败: {e}")
