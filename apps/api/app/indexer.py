@@ -43,6 +43,21 @@ def _list_note_files(notes_dir: Path, assets_folders: set[str] | None = None) ->
     return result
 
 
+def _resolve_scan_dir(settings) -> Path:
+    """确定 reindex 实际扫描的目录。
+
+    GitHub 模式 clone 整个仓库（含 My/Study/Template 等非博客内容），若直接扫 notes_dir
+    会把非发布内容也索引，且超大文件可能超出 embedding 输入上限。
+    配置了 notes_github_prefix 时只扫该子目录，与 syncer 的子目录提取语义对齐。
+    """
+    notes_dir = Path(settings.notes_dir)
+    if settings.remote_type == "github" and settings.notes_github_prefix:
+        subdir = notes_dir / settings.notes_github_prefix.strip("/")
+        if subdir.is_dir():
+            return subdir
+    return notes_dir
+
+
 def _extract_title(text: str, doc_id: str) -> str:
     frontmatter_match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
     if frontmatter_match:
@@ -168,7 +183,9 @@ def reindex() -> dict:
     if not notes_dir.is_dir():
         raise AppError(500, "notes_unavailable", f"笔记目录不存在：{notes_dir}")
 
-    input_files = _list_note_files(notes_dir, settings.assets_folder_set)
+    # GitHub 模式下只扫描 notes_github_prefix 子目录，避免索引非博客内容
+    scan_dir = _resolve_scan_dir(settings)
+    input_files = _list_note_files(scan_dir, settings.assets_folder_set)
     docstore = _load_docstore(settings.docstore_path)
     previous_hashes = _existing_hashes_by_doc_id(docstore)
     current_doc_ids = {

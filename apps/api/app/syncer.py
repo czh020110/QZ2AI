@@ -110,8 +110,10 @@ def _github_sync(settings) -> tuple[bool, bool]:
     git_dir = notes_dir / ".git"
 
     # 代理通过 git -c http.proxy 传入，作用域仅单条命令，不污染全局环境
+    # safe.directory='*' 解除 dubious ownership 限制：data 卷 owner 是宿主机 1000，
+    # 容器内 root clone 后 .git 为 root，混 owner 时 git 拒绝操作
     git_env = os.environ.copy()
-    git_base = ["git"]
+    git_base = ["git", "-c", "safe.directory=*"]
     if settings.git_proxy:
         git_base += ["-c", f"http.proxy={settings.git_proxy}", "-c", f"https.proxy={settings.git_proxy}"]
         logger.info("git 使用代理: %s", settings.git_proxy)

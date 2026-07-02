@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+import time
 
 import httpx
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -20,6 +21,7 @@ class DashScopeEmbedding(BaseEmbedding):
     timeout_seconds: float = Field(default=60.0)
     max_retries: int = Field(default=2)
     embed_batch_size: int = Field(default=10)
+    _backoff_seconds: float = PrivateAttr(default=1.0)
 
     _endpoint: str = PrivateAttr("https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding")
 
@@ -63,29 +65,47 @@ class DashScopeEmbedding(BaseEmbedding):
             "parameters": parameters,
         }
 
-        try:
-            with httpx.Client(timeout=_build_timeout(self.timeout_seconds)) as client:
-                response = client.post(self._endpoint, headers=headers, json=payload)
-        except httpx.TimeoutException as exc:
-            raise UpstreamTimeoutError(message="Embedding 服务响应超时", detail=str(exc)) from exc
-        except httpx.HTTPError as exc:
-            raise UpstreamServiceError("Embedding 服务调用失败", detail=str(exc)) from exc
+        # 百炼 embedding 偶发返回 5xx 服务端瞬时错误（大批量索引时更易触发），按配置重试
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                with httpx.Client(timeout=_build_timeout(self.timeout_seconds)) as client:
+                    response = client.post(self._endpoint, headers=headers, json=payload)
+            except httpx.TimeoutException as exc:
+                raise UpstreamTimeoutError(message="Embedding 服务响应超时", detail=str(exc)) from exc
+            except httpx.HTTPError as exc:
+                last_error = exc
+                if attempt < self.max_retries:
+                    time.sleep(self._backoff_seconds * (attempt + 1))
+                    continue
+                raise UpstreamServiceError("Embedding 服务调用失败", detail=str(exc)) from exc
 
-        if response.status_code >= 400:
-            detail = response.text[:500].strip() or response.reason_phrase
-            raise UpstreamServiceError("Embedding 服务返回异常状态", detail=detail)
+            # 5xx 视为可重试；4xx 是请求本身问题，直接抛出
+            if response.status_code >= 500 and attempt < self.max_retries:
+                last_error = UpstreamServiceError(
+                    "Embedding 服务返回异常状态", detail=f"HTTP {response.status_code}: {response.text[:200]}"
+                )
+                time.sleep(self._backoff_seconds * (attempt + 1))
+                continue
 
-        try:
-            data = response.json()
-        except ValueError as exc:
-            raise UpstreamServiceError("Embedding 服务返回了无法解析的数据", detail=str(exc)) from exc
+            if response.status_code >= 400:
+                detail = response.text[:500].strip() or response.reason_phrase
+                raise UpstreamServiceError("Embedding 服务返回异常状态", detail=detail)
 
-        embeddings = (data.get("output") or {}).get("embeddings") or []
-        if not embeddings:
-            raise UpstreamServiceError("Embedding 服务未返回有效向量")
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise UpstreamServiceError("Embedding 服务返回了无法解析的数据", detail=str(exc)) from exc
 
-        ordered = sorted(embeddings, key=lambda item: item.get("text_index", 0))
-        return [item["embedding"] for item in ordered if isinstance(item.get("embedding"), list)]
+            embeddings = (data.get("output") or {}).get("embeddings") or []
+            if not embeddings:
+                raise UpstreamServiceError("Embedding 服务未返回有效向量")
+
+            ordered = sorted(embeddings, key=lambda item: item.get("text_index", 0))
+            return [item["embedding"] for item in ordered if isinstance(item.get("embedding"), list)]
+
+        # 重试耗尽仍失败
+        raise last_error or UpstreamServiceError("Embedding 服务调用失败")
 
 
 def get_embed_model() -> BaseEmbedding:
@@ -111,4 +131,5 @@ def get_embed_model() -> BaseEmbedding:
         timeout_seconds=settings.embedding_timeout_seconds,
         max_retries=settings.http_max_retries,
         embed_batch_size=settings.embedding_batch_size,
+        _backoff_seconds=settings.http_retry_backoff_seconds,
     )
