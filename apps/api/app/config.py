@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     github_branch: str = "main"
     notes_github_prefix: str = ""  # 仓库内笔记子目录，如 blog/online（留空表示根目录）
     github_token: str = ""  # GitHub Personal Access Token（私有仓库需要）
+    git_proxy: str = ""  # git clone/pull 代理，如 http://172.17.0.1:7890（留空=直连）
+    git_accelerator: str = ""  # GitHub 加速镜像前缀，如 https://ghfast.top（留空=不加速）
 
     # 附件文件夹名列表（逗号分隔），这些文件夹不会被索引为博客文章
     # 但仍会被同步下载和 Quartz 构建复制，保证文章中的图片正常显示

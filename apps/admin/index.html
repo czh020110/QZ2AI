@@ -905,13 +905,14 @@ function groupConfig(items) {
     cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
     github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
     notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
+    git_proxy: '网络代理', git_accelerator: '网络代理',
     notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
     notify_email: '邮件通知', mail_server: '邮件通知',
     mail_port: '邮件通知', mail_username: '邮件通知',
     mail_password: '邮件通知',
   };
   // 这些字段在同步标签页管理，不显示在环境配置中
-  const syncOnlyKeys = new Set(['auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds']);
+  const syncOnlyKeys = new Set(['auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
 
   items.forEach(item => {
     if (syncOnlyKeys.has(item.key)) return;
@@ -1087,6 +1088,10 @@ function renderSync(status, config) {
   const syncLabels = {
     auto_sync_enabled: '定时同步开关', sync_interval_seconds: '定时同步间隔（秒，0=禁用）', debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥' };
   const notifyKeys = ['notify_enabled', 'notify_interval_seconds', 'notify_email', 'mail_server', 'mail_port', 'mail_username', 'mail_password'];
+  const proxyKeys = ['git_proxy', 'git_accelerator'];
+  const proxyLabels = {
+    git_proxy: 'Git 代理地址', git_accelerator: '加速镜像前缀',
+  };
   const remoteTypVal = findVal('remote_type') || 'cos';
 
   let configHtml = '';
@@ -1140,6 +1145,17 @@ function renderSync(status, config) {
       </div>`;
     }
   });
+  // 网络代理与加速配置
+  let proxyHtml = '';
+  proxyKeys.forEach(key => {
+    const val = findVal(key);
+    const label = proxyLabels[key] || key;
+    const ph = key === 'git_proxy' ? 'http://172.17.0.1:7890（留空=直连）' : 'https://ghfast.top（留空=不加速）';
+    proxyHtml += `<div class="config-item">
+      <label class="config-label">${esc(label)}</label>
+      <input class="config-input" type="text" data-key="${key}" value="${esc(String(val))}" placeholder="${ph}">
+    </div>`;
+  });
 
   content.innerHTML = `
     <div class="config-section">
@@ -1179,6 +1195,14 @@ function renderSync(status, config) {
             ${remoteTypVal==='github' ? '从 GitHub 仓库拉取笔记（只读）' : '从 COS 存储桶拉取笔记'}
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">网络代理与加速</div>
+      <div class="config-grid">${proxyHtml}</div>
+      <div style="font-size:.72rem;color:var(--text-secondary);margin-top:4px">
+        仅 GitHub 同步生效；代理需先在宿主机开启 allow-lan，留空则直连
       </div>
     </div>
 

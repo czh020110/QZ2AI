@@ -109,28 +109,43 @@ def _github_sync(settings) -> tuple[bool, bool]:
     notes_dir = Path(settings.notes_dir)
     git_dir = notes_dir / ".git"
 
-    # 配置 git 使用代理（如果环境变量中有配置）
+    # 代理通过 git -c http.proxy 传入，作用域仅单条命令，不污染全局环境
     git_env = os.environ.copy()
-    if "https_proxy" in git_env or "HTTPS_PROXY" in git_env:
-        proxy_url = git_env.get("https_proxy") or git_env.get("HTTPS_PROXY")
-        logger.info("使用代理: %s", proxy_url)
+    git_base = ["git"]
+    if settings.git_proxy:
+        git_base += ["-c", f"http.proxy={settings.git_proxy}", "-c", f"https.proxy={settings.git_proxy}"]
+        logger.info("git 使用代理: %s", settings.git_proxy)
 
-    # 如果配置了 GitHub Token，在 URL 中注入认证信息
+    # 构造仓库 URL：可选加速镜像前缀 + token 认证。
+    # GitHub 已禁用 https://TOKEN@github.com 旧格式，必须用 x-access-token 用户名，
+    # 否则 git 会把 TOKEN 当用户名并交互式要求输入密码，容器内无 tty 导致克隆失败。
     repo_url = settings.github_repo_url
+    if settings.git_accelerator and repo_url.startswith("https://github.com/"):
+        repo_url = settings.git_accelerator.rstrip("/") + "/" + repo_url
+        logger.info("使用加速镜像: %s", settings.git_accelerator)
     if settings.github_token and "github.com" in repo_url:
-        # 将 https://github.com/user/repo.git 转换为 https://TOKEN@github.com/user/repo.git
         if repo_url.startswith("https://github.com/"):
-            repo_url = repo_url.replace("https://github.com/", f"https://{settings.github_token}@github.com/")
+            repo_url = repo_url.replace("https://github.com/", f"https://x-access-token:{settings.github_token}@github.com/")
             logger.info("使用 GitHub Token 认证")
 
     try:
         # 检查是否已经是 git 仓库
         if not git_dir.exists():
-            # 首次克隆
+            # 首次克隆：git clone 要求目标目录为空或不存在。
+            # 从 COS 等其他来源切换到 GitHub 时，notes_dir 可能已残留旧笔记，
+            # 需先清空目录（保留目录本身）再克隆，否则 clone 会报 "destination path already exists"
+            if notes_dir.exists():
+                import shutil
+                for item in notes_dir.iterdir():
+                    if item.is_dir():
+                        shutil.rmtree(item)
+                    else:
+                        item.unlink()
+                logger.info("首次克隆前清空残留目录: %s", notes_dir)
             notes_dir.mkdir(parents=True, exist_ok=True)
             logger.info("首次克隆 GitHub 仓库: %s → %s", settings.github_repo_url, notes_dir)
-            cmd = [
-                "git", "clone", "--depth", "1",
+            cmd = git_base + [
+                "clone", "--depth", "1",
                 "--branch", settings.github_branch,
                 repo_url, str(notes_dir)
             ]
@@ -145,32 +160,31 @@ def _github_sync(settings) -> tuple[bool, bool]:
         logger.info("拉取 GitHub 仓库更新: %s", settings.github_repo_url)
 
         # 丢弃本地变更（只读模式）
-        reset_cmd = ["git", "-C", str(notes_dir), "reset", "--hard", "HEAD"]
+        reset_cmd = git_base + ["-C", str(notes_dir), "reset", "--hard", "HEAD"]
         subprocess.run(reset_cmd, capture_output=True, text=True, timeout=30, env=git_env)
 
         # 清理未跟踪文件
-        clean_cmd = ["git", "-C", str(notes_dir), "clean", "-fd"]
+        clean_cmd = git_base + ["-C", str(notes_dir), "clean", "-fd"]
         subprocess.run(clean_cmd, capture_output=True, text=True, timeout=30, env=git_env)
 
         # 更新 remote URL（以防 token 变更）
         if settings.github_token:
-            set_url_cmd = ["git", "-C", str(notes_dir), "remote", "set-url", "origin", repo_url]
+            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", repo_url]
             subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
-
         # 记录拉取前的 commit
-        old_commit_cmd = ["git", "-C", str(notes_dir), "rev-parse", "HEAD"]
+        old_commit_cmd = git_base + ["-C", str(notes_dir), "rev-parse", "HEAD"]
         old_result = subprocess.run(old_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         old_commit = old_result.stdout.strip() if old_result.returncode == 0 else ""
 
         # 拉取最新代码
-        pull_cmd = ["git", "-C", str(notes_dir), "pull", "--rebase", "origin", settings.github_branch]
+        pull_cmd = git_base + ["-C", str(notes_dir), "pull", "--rebase", "origin", settings.github_branch]
         result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
         if result.returncode != 0:
             logger.error("GitHub 拉取失败: %s", result.stderr[:500])
             return False, False
 
         # 记录拉取后的 commit
-        new_commit_cmd = ["git", "-C", str(notes_dir), "rev-parse", "HEAD"]
+        new_commit_cmd = git_base + ["-C", str(notes_dir), "rev-parse", "HEAD"]
         new_result = subprocess.run(new_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         new_commit = new_result.stdout.strip() if new_result.returncode == 0 else ""
 
