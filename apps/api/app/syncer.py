@@ -100,6 +100,83 @@ def _coscli_sync(settings) -> tuple[bool, bool]:
                 pass
 
 
+def _build_repo_url(settings, accelerator: str = "") -> str:
+    """构造 GitHub 仓库 URL：可选加速镜像前缀 + token 认证。
+
+    accelerator 为空时走直连；非空时把 https://github.com/... 重写到该前缀。
+    GitHub 已禁用 https://TOKEN@github.com 旧格式，必须用 x-access-token 用户名，
+    否则 git 会把 TOKEN 当用户名并交互式要求输入密码，容器内无 tty 导致克隆失败。
+    """
+    repo_url = settings.github_repo_url
+    if accelerator and repo_url.startswith("https://github.com/"):
+        repo_url = accelerator.rstrip("/") + "/" + repo_url
+    if settings.github_token and "github.com" in repo_url:
+        if repo_url.startswith("https://github.com/"):
+            repo_url = repo_url.replace("https://github.com/", f"https://x-access-token:{settings.github_token}@github.com/")
+    return repo_url
+
+
+def _run_pull(git_base, notes_dir, branch, repo_url, git_env) -> subprocess.CompletedProcess:
+    """执行一次 git pull --rebase。"""
+    pull_cmd = git_base + ["-C", str(notes_dir), "pull", "--rebase", "origin", branch]
+    return subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
+
+
+def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> bool:
+    """拉取 GitHub 仓库更新，失败时按加速源顺序兜底重试。
+
+    重试顺序：直连 → 用户配置的 git_accelerator → 硬编码 https://ghfast.top。
+    国内服务器直连 github.com 不稳定，偶发超时时靠加速镜像兜底，避免单次 webhook 同步彻底失败。
+    返回是否最终成功。
+    """
+    branch = settings.github_branch
+    direct_url = _build_repo_url(settings)
+
+    # 先 set-url 到直连地址再 pull（token 可能变更，每次都同步 remote）
+    if settings.github_token:
+        set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", direct_url]
+        subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+
+    # 1. 直连
+    result = _run_pull(git_base, notes_dir, branch, direct_url, git_env)
+    if result.returncode == 0:
+        return True
+    logger.warning("GitHub 直连拉取失败: %s", result.stderr[:300])
+
+    # 2. 用户配置的加速镜像（与直连不同时才试，避免重复）
+    if settings.git_accelerator:
+        accel_url = _build_repo_url(settings, settings.git_accelerator)
+        logger.warning("重试：使用配置的加速镜像 %s", settings.git_accelerator)
+        if settings.github_token:
+            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", accel_url]
+            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        result = _run_pull(git_base, notes_dir, branch, accel_url, git_env)
+        if result.returncode == 0:
+            logger.info("加速镜像 %s 拉取成功", settings.git_accelerator)
+            return True
+        logger.warning("加速镜像 %s 拉取失败: %s", settings.git_accelerator, result.stderr[:300])
+
+    # 3. 硬编码 ghfast.top 兜底（与用户配置不同时才试）
+    hardcoded = "https://ghfast.top"
+    if hardcoded != settings.git_accelerator:
+        hard_url = _build_repo_url(settings, hardcoded)
+        logger.warning("重试：使用硬编码加速 %s", hardcoded)
+        if settings.github_token:
+            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", hard_url]
+            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        result = _run_pull(git_base, notes_dir, branch, hard_url, git_env)
+        if result.returncode == 0:
+            logger.info("硬编码加速 %s 拉取成功", hardcoded)
+            return True
+        logger.error("硬编码加速 %s 拉取失败: %s", hardcoded, result.stderr[:300])
+
+    # 三次都失败，恢复 remote 到直连地址（避免下次 set-url 前残留加速地址）
+    if settings.github_token:
+        set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", direct_url]
+        subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+    return False
+
+
 def _github_sync(settings) -> tuple[bool, bool]:
     """执行 GitHub 只读同步，返回 (成功, 有变更)"""
     if not settings.github_repo_url:
@@ -118,17 +195,12 @@ def _github_sync(settings) -> tuple[bool, bool]:
         git_base += ["-c", f"http.proxy={settings.git_proxy}", "-c", f"https.proxy={settings.git_proxy}"]
         logger.info("git 使用代理: %s", settings.git_proxy)
 
-    # 构造仓库 URL：可选加速镜像前缀 + token 认证。
-    # GitHub 已禁用 https://TOKEN@github.com 旧格式，必须用 x-access-token 用户名，
-    # 否则 git 会把 TOKEN 当用户名并交互式要求输入密码，容器内无 tty 导致克隆失败。
-    repo_url = settings.github_repo_url
-    if settings.git_accelerator and repo_url.startswith("https://github.com/"):
-        repo_url = settings.git_accelerator.rstrip("/") + "/" + repo_url
+    # 首次克隆用配置的加速地址（若有），失败由 clone 自身的 600s 超时兜底，不在此重试
+    repo_url = _build_repo_url(settings, settings.git_accelerator)
+    if settings.git_accelerator:
         logger.info("使用加速镜像: %s", settings.git_accelerator)
-    if settings.github_token and "github.com" in repo_url:
-        if repo_url.startswith("https://github.com/"):
-            repo_url = repo_url.replace("https://github.com/", f"https://x-access-token:{settings.github_token}@github.com/")
-            logger.info("使用 GitHub Token 认证")
+    elif settings.github_token:
+        logger.info("使用 GitHub Token 认证")
 
     try:
         # 检查是否已经是 git 仓库
@@ -169,20 +241,13 @@ def _github_sync(settings) -> tuple[bool, bool]:
         clean_cmd = git_base + ["-C", str(notes_dir), "clean", "-fd"]
         subprocess.run(clean_cmd, capture_output=True, text=True, timeout=30, env=git_env)
 
-        # 更新 remote URL（以防 token 变更）
-        if settings.github_token:
-            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", repo_url]
-            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         # 记录拉取前的 commit
         old_commit_cmd = git_base + ["-C", str(notes_dir), "rev-parse", "HEAD"]
         old_result = subprocess.run(old_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         old_commit = old_result.stdout.strip() if old_result.returncode == 0 else ""
 
-        # 拉取最新代码
-        pull_cmd = git_base + ["-C", str(notes_dir), "pull", "--rebase", "origin", settings.github_branch]
-        result = subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
-        if result.returncode != 0:
-            logger.error("GitHub 拉取失败: %s", result.stderr[:500])
+        # 拉取最新代码（含加速兜底重试）
+        if not _pull_with_fallback(settings, git_base, notes_dir, git_env):
             return False, False
 
         # 记录拉取后的 commit
@@ -192,28 +257,6 @@ def _github_sync(settings) -> tuple[bool, bool]:
 
         changed = (old_commit != new_commit)
         logger.info("GitHub 拉取完成，有变更: %s (旧: %s, 新: %s)", changed, old_commit[:8], new_commit[:8])
-
-        # 如果配置了子目录，需要处理文件移动
-        if changed and settings.notes_github_prefix:
-            subdir = notes_dir / settings.notes_github_prefix.strip("/")
-            if subdir.exists() and subdir != notes_dir:
-                logger.info("处理子目录: %s", settings.notes_github_prefix)
-                # 临时移动文件（保留 .git）
-                import tempfile
-                import shutil
-                with tempfile.TemporaryDirectory() as tmpdir:
-                    tmp_path = Path(tmpdir) / "notes"
-                    shutil.move(str(subdir), str(tmp_path))
-                    # 清理 notes_dir 除了 .git 外的所有文件
-                    for item in notes_dir.iterdir():
-                        if item.name != ".git":
-                            if item.is_dir():
-                                shutil.rmtree(item)
-                            else:
-                                item.unlink()
-                    # 移动回来
-                    for item in tmp_path.iterdir():
-                        shutil.move(str(item), str(notes_dir / item.name))
 
         return True, changed
     except Exception as e:

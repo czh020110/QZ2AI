@@ -947,6 +947,23 @@ function renderConfig(items) {
           </select>
           <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">切换后即时生效</div>
         </div>`;
+      } else if (f.key === 'embedding_provider') {
+        html += `<div class="config-item">
+          <label class="config-label">${esc(f.key)}</label>
+          <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
+            <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
+            <option value="openai" ${value === 'openai' ? 'selected' : ''}>openai（OpenAI 兼容）</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">百炼用 text-embedding-v4，OpenAI 用 text-embedding-3 系列</div>
+        </div>`;
+      } else if (f.key === 'rerank_provider') {
+        html += `<div class="config-item">
+          <label class="config-label">${esc(f.key)}</label>
+          <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
+            <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">当前仅内置百炼 rerank（qwen3-rerank）</div>
+        </div>`;
       } else if (inputType === 'checkbox') {
         html += `<div class="config-item">
           <label class="config-label">${esc(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
@@ -1084,37 +1101,57 @@ function renderSync(status, config) {
   const stateLabel = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
   const stateCls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
 
-  const syncKeys = ['auto_sync_enabled', 'sync_interval_seconds', 'debounce_seconds', 'webhook_secret'];
-  const syncLabels = {
-    auto_sync_enabled: '定时同步开关', sync_interval_seconds: '定时同步间隔（秒，0=禁用）', debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥' };
+  const remoteTypVal = findVal('remote_type') || 'cos';
+  // GitHub 走 push 触发的自动同步，COS 走定时轮询：同一开关在两种模式下语义不同
+  const isGithubSync = remoteTypVal === 'github';
+  // 三态推导：auto_sync_enabled=false → manual；=true && interval=0 → auto；=true && interval>0 → scheduled
+  const autoEnabled = isBool(findVal('auto_sync_enabled'));
+  const intervalVal = parseInt(findVal('sync_interval_seconds'), 10) || 0;
+  const currentMode = !autoEnabled ? 'manual' : (intervalVal > 0 ? 'scheduled' : 'auto');
+
+  const debounceKey = ['debounce_seconds', 'webhook_secret'];
+  const debounceLabels = {
+    debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥',
+  };
   const notifyKeys = ['notify_enabled', 'notify_interval_seconds', 'notify_email', 'mail_server', 'mail_port', 'mail_username', 'mail_password'];
   const proxyKeys = ['git_proxy', 'git_accelerator'];
   const proxyLabels = {
     git_proxy: 'Git 代理地址', git_accelerator: '加速镜像前缀',
   };
-  const remoteTypVal = findVal('remote_type') || 'cos';
+
+  const modeHint = isGithubSync
+    ? '自动：push 即触发（推荐）｜定时：定时轮询兜底｜手动：仅点按钮触发，webhook 被拦截'
+    : '定时：定时轮询拉取（COS 推荐）｜自动：等 webhook 触发｜手动：仅点按钮触发';
 
   let configHtml = '';
-  syncKeys.forEach(key => {
+  // 同步策略下拉（三态，由 JS 翻译成 auto_sync_enabled + sync_interval_seconds）
+  configHtml += `<div class="config-item" style="grid-column:1/-1">
+    <label class="config-label">同步策略</label>
+    <select class="config-input" data-sync-mode style="cursor:pointer;max-width:320px">
+      <option value="auto" ${currentMode==='auto'?'selected':''}>自动同步（push 触发，仅 GitHub）</option>
+      <option value="scheduled" ${currentMode==='scheduled'?'selected':''}>定时同步</option>
+      <option value="manual" ${currentMode==='manual'?'selected':''}>手动同步（仅点按钮触发）</option>
+    </select>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">${esc(modeHint)}</div>
+  </div>`;
+  // 定时间隔：仅 scheduled 模式可编辑，其余禁用
+  const intervalDisabled = currentMode !== 'scheduled';
+  configHtml += `<div class="config-item">
+    <label class="config-label">定时同步间隔（秒，0=禁用）</label>
+    <input class="config-input" type="text" data-key="sync_interval_seconds"
+      value="${esc(String(findVal('sync_interval_seconds')))}" ${intervalDisabled ? 'disabled style="opacity:.5;cursor:not-allowed"' : ''}>
+    <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">仅「定时同步」模式生效，COS 默认 1800，GitHub 模式设 0</div>
+  </div>`;
+  // 防抖 + webhook 密钥
+  debounceKey.forEach(key => {
     const val = findVal(key);
     const sensitive = findSensitive(key);
-    const label = syncLabels[key];
-    if (key === 'auto_sync_enabled') {
-      const checked = isBool(val);
-      configHtml += `<div class="config-item">
-        <label class="config-label">${esc(label)}</label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
-          <input type="checkbox" data-key="${key}" ${checked ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px">
-          <span style="font-size:.78rem;color:var(--text-secondary)">${checked ? '已开启' : '已关闭'}</span>
-        </label>
-      </div>`;
-    } else {
-      configHtml += `<div class="config-item">
-        <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
-        <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
-          value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
-      </div>`;
-    }
+    const label = debounceLabels[key];
+    configHtml += `<div class="config-item">
+      <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
+      <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+        value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
+    </div>`;
   });
   // 通知配置
   const notifyLabels = {
@@ -1234,7 +1271,21 @@ async function saveSyncConfig() {
   const btn = document.getElementById('syncSaveBtn');
   btn.disabled = true; btn.textContent = '保存中...';
   const updates = {};
+  // 同步策略三态 → auto_sync_enabled + sync_interval_seconds 翻译
+  const modeSel = document.querySelector('#tab-sync [data-sync-mode]');
+  const mode = modeSel ? modeSel.value : 'auto';
+  if (mode === 'manual') {
+    updates['auto_sync_enabled'] = 'false';
+    updates['sync_interval_seconds'] = '0';
+  } else if (mode === 'auto') {
+    updates['auto_sync_enabled'] = 'true';
+    updates['sync_interval_seconds'] = '0';
+  } else { // scheduled
+    updates['auto_sync_enabled'] = 'true';
+    // sync_interval_seconds 走下面通用收集（保持用户填的值）
+  }
   document.querySelectorAll('#tab-sync [data-key]').forEach(el => {
+    if (el.disabled) return; // 非当前模式禁用的字段不提交
     if (el.type === 'checkbox') {
       updates[el.dataset.key] = el.checked ? 'true' : 'false';
     } else if (el.dataset.sensitive === 'true' && !el.value.trim()) {
@@ -1252,11 +1303,31 @@ async function saveSyncConfig() {
     if (!res.ok) throw new Error(`${res.status}`);
     showToast('保存成功，即时生效', 'success');
     loadSync();
+    // auto + github 模式：检查 workflow 是否存在，不存在则提示创建
+    if (mode === 'auto') {
+      const rt = document.querySelector('#tab-sync [data-key="remote_type"]');
+      const rtVal = rt ? rt.value : '';
+      if (rtVal === 'github') {
+        checkAndPromptWorkflow();
+      }
+    }
   } catch (e) {
     showToast('保存失败：' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = '保存同步配置';
   }
+}
+
+// 自动同步模式下，若 GitHub workflow 不存在则提示一键创建（不自动写入仓库）
+async function checkAndPromptWorkflow() {
+  try {
+    const res = await fetch(`${API_BASE}/github/workflow`, { headers: { 'X-Admin-Token': adminToken } });
+    const data = await res.json();
+    if (data.status === 'ok' && !data.exists) {
+      showToast('检测到未创建 GitHub Actions 工作流，已为你定位到下方「创建工作流」按钮', 'info');
+      document.getElementById('githubWorkflowStatus')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } catch { /* 忽略，workflow 检查失败不阻塞保存 */ }
 }
 
 async function triggerSync() {

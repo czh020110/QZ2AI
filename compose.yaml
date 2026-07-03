@@ -39,6 +39,9 @@ services:
     build: ./apps/web
     image: blog-web:latest
     env_file: .env
+    environment:
+      # 仅构建 notes_github_prefix 子目录，避免把仓库中私密目录发布到公网
+      - NOTES_GITHUB_PREFIX=${NOTES_GITHUB_PREFIX:-}
     volumes:
       - ./data/notes:/data/notes:ro
       - public:/public

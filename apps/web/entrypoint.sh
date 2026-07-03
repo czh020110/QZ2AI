@@ -6,13 +6,26 @@ set -eu
 NOTES_DIR="${NOTES_DIR:-/data/notes}"
 OUTPUT_DIR="${OUTPUT_DIR:-/public}"
 
-# content 指向挂载的笔记目录：docs-research 确认 v5 推荐 symlink 方式接外部内容
+# GitHub 模式下只把 notes_github_prefix 子目录作为内容源，避免把仓库里的
+# 非发布内容（My/Study/Template 等私密目录）构建成网页公网可见。
+# prefix 为空（COS 模式或仓库根即博客）时回退到整个 notes_dir。
+CONTENT_SRC="$NOTES_DIR"
+if [ -n "$NOTES_GITHUB_PREFIX" ]; then
+  SUBDIR="$NOTES_DIR/$(echo "$NOTES_GITHUB_PREFIX" | sed 's#^/*##; s#/*$##')"
+  if [ -d "$SUBDIR" ]; then
+    CONTENT_SRC="$SUBDIR"
+  else
+    echo "[entrypoint] 警告：子目录 $SUBDIR 不存在，回退到 $NOTES_DIR"
+  fi
+fi
+
+# content 指向实际内容源：docs-research 确认 v5 推荐 symlink 方式接外部内容
 rm -rf /quartz/content
-if [ -d "$NOTES_DIR" ] && [ -n "$(ls -A "$NOTES_DIR" 2>/dev/null || true)" ]; then
-    ln -s "$NOTES_DIR" /quartz/content
+if [ -d "$CONTENT_SRC" ] && [ -n "$(ls -A "$CONTENT_SRC" 2>/dev/null || true)" ]; then
+    ln -s "$CONTENT_SRC" /quartz/content
 else
     # 内容源为空时建空目录，保证构建不因缺 content 失败（骨架期容错）
-    echo "[entrypoint] 警告：$NOTES_DIR 为空，使用空 content 构建"
+    echo "[entrypoint] 警告：$CONTENT_SRC 为空，使用空 content 构建"
     mkdir -p /quartz/content
 fi
 
