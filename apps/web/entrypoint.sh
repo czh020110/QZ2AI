@@ -13,7 +13,13 @@ CONTENT_SRC="$NOTES_DIR"
 if [ -n "$NOTES_GITHUB_PREFIX" ]; then
   SUBDIR="$NOTES_DIR/$(echo "$NOTES_GITHUB_PREFIX" | sed 's#^/*##; s#/*$##')"
   if [ -d "$SUBDIR" ]; then
-    CONTENT_SRC="$SUBDIR"
+    # 安全兜底：防止 prefix 含 .. 跨越 NOTES_DIR 向上遍历
+    RESOLVED="$(cd "$SUBDIR" && pwd -P)"
+    if [ "${RESOLVED##"$NOTES_DIR"}" != "$RESOLVED" ]; then
+      CONTENT_SRC="$SUBDIR"
+    else
+      echo "[entrypoint] 危险：$SUBDIR 不在 $NOTES_DIR 内，拒绝使用，回退到 $NOTES_DIR"
+    fi
   else
     echo "[entrypoint] 警告：子目录 $SUBDIR 不存在，回退到 $NOTES_DIR"
   fi

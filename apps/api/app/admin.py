@@ -226,6 +226,7 @@ def _read_sync_state() -> dict[str, Any]:
         return {
             "pending": False,
             "syncing": False,
+            "building": False,
             "debounce_until": 0,
             "triggered_at": "",
             "event_count": 0,
@@ -255,6 +256,7 @@ def _trigger_sync_pending(s) -> WebhookResponse:
     state = _read_sync_state()
     state["pending"] = True
     state["syncing"] = False
+    state["building"] = False
     state["debounce_until"] = time.time() + s.debounce_seconds
     state["triggered_at"] = datetime.now().isoformat()
     state["event_count"] = state.get("event_count", 0) + 1
@@ -332,7 +334,7 @@ def update_sync_status(
     _verify_admin(x_admin_token)
     state = _read_sync_state()
     if body:
-        for key in ("pending", "syncing", "debounce_until", "triggered_at",
+        for key in ("pending", "syncing", "building", "debounce_until", "triggered_at",
                      "event_count", "last_sync_at", "last_sync_status"):
             if key in body:
                 state[key] = body[key]

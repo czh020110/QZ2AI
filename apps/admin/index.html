@@ -912,7 +912,7 @@ function groupConfig(items) {
     mail_password: '邮件通知',
   };
   // 这些字段在同步标签页管理，不显示在环境配置中
-  const syncOnlyKeys = new Set(['auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
+  const syncOnlyKeys = new Set(['remote_type', 'auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
 
   items.forEach(item => {
     if (syncOnlyKeys.has(item.key)) return;
@@ -1073,6 +1073,32 @@ async function loadSync() {
   syncPollTimer = setInterval(pollSyncStatus, 5000);
 }
 
+// 状态推导：优先级 syncing > building > pending > idle；失败态由 last_sync_status 体现
+function deriveSyncState(status) {
+  // 当前进行中的状态
+  if (status.syncing && status.building) return { label: '构建中', cls: 'tag-suggestion' };
+  if (status.syncing) return { label: '同步中', cls: 'tag-pending' };
+  if (status.pending) return { label: '待同步', cls: 'tag-suggestion' };
+  // 空闲时显示上次结果：成功=同步完成，失败=同步失败，无记录=空闲
+  const last = status.last_sync_status || '';
+  if (last === 'success') return { label: '同步完成', cls: 'tag-resolved' };
+  if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') return { label: '同步失败', cls: 'tag-error' };
+  return { label: '空闲', cls: 'tag-resolved' };
+}
+
+// 上次状态原文 → 展示标签
+function lastStatusBadge(status) {
+  const last = status.last_sync_status || '';
+  if (!last) return { label: '—', cls: 'tag-resolved' };
+  const map = {
+    success: { label: 'success', cls: 'tag-resolved' },
+    sync_failed: { label: 'failure', cls: 'tag-error' },
+    reindex_failed: { label: 'failure', cls: 'tag-error' },
+    build_failed: { label: 'failure', cls: 'tag-error' },
+  };
+  return map[last] || { label: last, cls: 'tag-other' };
+}
+
 async function pollSyncStatus() {
   try {
     const res = await fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } });
@@ -1081,14 +1107,19 @@ async function pollSyncStatus() {
     const statusEl = document.getElementById('syncStatusBadge');
     const lastEl = document.getElementById('syncLastTime');
     const countEl = document.getElementById('syncEventCount');
+    const lastStatusEl = document.getElementById('syncLastStatus');
     if (statusEl) {
-      const label = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
-      const cls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
-      statusEl.className = `tag ${cls}`;
-      statusEl.textContent = label;
+      const cur = deriveSyncState(status);
+      statusEl.className = `tag ${cur.cls}`;
+      statusEl.textContent = cur.label;
     }
     if (lastEl) lastEl.textContent = status.last_sync_at ? formatTime(status.last_sync_at) : '—';
     if (countEl) countEl.textContent = status.event_count || 0;
+    if (lastStatusEl) {
+      const ls = lastStatusBadge(status);
+      lastStatusEl.className = `tag ${ls.cls}`;
+      lastStatusEl.textContent = ls.label;
+    }
   } catch { /* ignore */ }
 }
 
@@ -1098,8 +1129,11 @@ function renderSync(status, config) {
   const findSensitive = (key) => { const item = config.find(c => c.key === key); return item ? item.sensitive : false; };
   const isBool = (v) => v === true || v === 'True' || v === 'true';
 
-  const stateLabel = status.syncing ? '同步中' : (status.pending ? '待同步' : '空闲');
-  const stateCls = status.syncing ? 'tag-pending' : (status.pending ? 'tag-suggestion' : 'tag-resolved');
+  const derived = deriveSyncState(status);
+  const stateLabel = derived.label;
+  const stateCls = derived.cls;
+  const lastStatusDerived = lastStatusBadge(status);
+  const lastStatusLabel = lastStatusDerived.label;
 
   const remoteTypVal = findVal('remote_type') || 'cos';
   // GitHub 走 push 触发的自动同步，COS 走定时轮询：同一开关在两种模式下语义不同
@@ -1208,14 +1242,14 @@ function renderSync(status, config) {
         </div>
         <div class="config-item">
           <span class="config-label">上次状态</span>
-          <span id="syncLastStatus" style="font-size:.82rem;color:var(--text-secondary);margin-top:4px">${status.last_sync_status || '—'}</span>
+          <span id="syncLastStatus" class="tag ${lastStatusDerived.cls}" style="margin-top:4px;display:inline-block">${lastStatusLabel}</span>
         </div>
       </div>
       <div style="display:flex;gap:12px;align-items:center">
         <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
-          ${status.syncing ? '同步中...' : '手动触发同步'}
+          ${status.syncing ? (status.building ? '构建中...' : '同步中...') : '手动触发同步'}
         </button>
-        <span class="save-hint">远程拉取 → 索引重建 → Quartz 构建</span>
+        <span class="save-hint">流程：待同步 → 同步中（远程拉取）→ 构建中（索引+Quartz）→ 同步完成/失败 → 空闲</span>
       </div>
     </div>
 

@@ -15,12 +15,70 @@ SYNC_PENDING_PATH = Path("/data/sync-pending.json")
 POLL_INTERVAL = 10
 
 
+def _resolve_compose_project() -> str:
+    """探测 blog 容器所属的 compose project name，让 syncer 触发的 web 构建容器与 blog 共享命名卷。
+
+    blog 容器由宿主机 `docker compose up` 启动，命名卷名为 <project>_public；syncer 在容器内
+    `cd /project && docker compose run` 默认用 cwd 目录名作 project，导致 project_public != blog_public，
+    构建产物写不到 nginx 托管的卷。从自身容器 label com.docker.compose.project 读取，与 blog 对齐。
+    """
+    hostname = os.environ.get("HOSTNAME", "")
+    if not hostname:
+        logger.warning("HOSTNAME 环境变量为空，无法探测 compose project name，卷名可能不匹配")
+        return ""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", hostname,
+             "--format", "{{ index .Config.Labels \"com.docker.compose.project\" }}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            name = result.stdout.strip()
+            if name:
+                return name
+    except Exception as e:
+        logger.warning("探测 compose project name 失败: %s", e)
+    return ""
+
+
+def _resolve_host_data_dir() -> str:
+    """探测宿主机 data 目录路径，供 compose 把 web 容器的 notes bind 到宿主机真实路径。
+
+    syncer 在容器内通过 docker socket 调 `docker compose run web`，compose 在容器内
+    解析 ./data/notes 得到容器路径，但真正执行 bind 的宿主机 daemon 端没有这个路径，
+    会把 web 容器 bind 到空目录、构建 0 篇文章却 exit 0。
+    通过 docker inspect 自身容器拿 /data 的宿主机 source（如 /home/ubuntu/Blog/data），
+    注入 HOST_NOTES_DIR 环境变量，compose.yaml 用 ${HOST_NOTES_DIR}/notes 作为绝对路径 bind。
+    """
+    hostname = os.environ.get("HOSTNAME", "")
+    if not hostname:
+        logger.warning("HOSTNAME 环境变量为空，无法探测宿主机 data 路径")
+        return ""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", hostname,
+             "--format", "{{range .Mounts}}{{.Destination}}={{.Source}}{{println}}{{end}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return ""
+        for line in result.stdout.splitlines():
+            if "=" not in line:
+                continue
+            dst, _, src = line.partition("=")
+            if dst.strip() == "/data":
+                return src.strip()
+    except Exception as e:
+        logger.warning("探测宿主机 data 路径失败: %s", e)
+    return ""
+
+
 def _read_state() -> dict:
     try:
         return json.loads(SYNC_PENDING_PATH.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {
-            "pending": False, "syncing": False, "debounce_until": 0,
+            "pending": False, "syncing": False, "building": False, "debounce_until": 0,
             "triggered_at": "", "event_count": 0,
             "last_sync_at": "", "last_sync_status": "",
         }
@@ -116,8 +174,8 @@ def _build_repo_url(settings, accelerator: str = "") -> str:
     return repo_url
 
 
-def _run_pull(git_base, notes_dir, branch, repo_url, git_env) -> subprocess.CompletedProcess:
-    """执行一次 git pull --rebase。"""
+def _run_pull(git_base, notes_dir, branch, git_env) -> subprocess.CompletedProcess:
+    """执行一次 git pull --rebase 从已配置的 remote origin 拉取。"""
     pull_cmd = git_base + ["-C", str(notes_dir), "pull", "--rebase", "origin", branch]
     return subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
 
@@ -138,7 +196,7 @@ def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> bool:
         subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
 
     # 1. 直连
-    result = _run_pull(git_base, notes_dir, branch, direct_url, git_env)
+    result = _run_pull(git_base, notes_dir, branch, git_env)
     if result.returncode == 0:
         return True
     logger.warning("GitHub 直连拉取失败: %s", result.stderr[:300])
@@ -150,7 +208,7 @@ def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> bool:
         if settings.github_token:
             set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", accel_url]
             subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
-        result = _run_pull(git_base, notes_dir, branch, accel_url, git_env)
+        result = _run_pull(git_base, notes_dir, branch, git_env)
         if result.returncode == 0:
             logger.info("加速镜像 %s 拉取成功", settings.git_accelerator)
             return True
@@ -164,7 +222,7 @@ def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> bool:
         if settings.github_token:
             set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", hard_url]
             subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
-        result = _run_pull(git_base, notes_dir, branch, hard_url, git_env)
+        result = _run_pull(git_base, notes_dir, branch, git_env)
         if result.returncode == 0:
             logger.info("硬编码加速 %s 拉取成功", hardcoded)
             return True
@@ -288,14 +346,37 @@ def _trigger_reindex() -> bool:
 
 
 def _trigger_web_rebuild() -> bool:
-    """执行 docker compose run --rm -T web"""
+    """执行 docker compose run --rm -T web
+
+    compose 通过 docker socket 在宿主机 daemon 端执行。两个关键点：
+    1. notes bind 用 ${HOST_NOTES_DIR}/notes 绝对路径（HOST_NOTES_DIR 由 _resolve_host_data_dir 探测），
+       避免相对路径在宿主机端解析到空目录、构建 0 篇却 exit 0。
+    2. --project-name 由 _resolve_compose_project 从自身容器 label 探测，与 blog 容器对齐；
+       否则容器内 cwd=/project 会让 compose 用 project name=project，命名卷变成 project_public，
+       与 blog 容器挂载的 blog_public 不是同一个，构建产物写不到 nginx 托管的卷上。
+    """
     try:
+        host_data_dir = _resolve_host_data_dir()
+        if not host_data_dir:
+            logger.error("无法探测宿主机 data 路径，跳过 Quartz 构建")
+            return False
         project_dir = os.environ.get("PROJECT_DIR", "/project")
-        cmd = ["docker", "compose", "run", "--rm", "-T", "web"]
-        logger.info("触发 Quartz 构建")
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, cwd=project_dir)
+        env = os.environ.copy()
+        env["HOST_NOTES_DIR"] = host_data_dir
+        project_name = _resolve_compose_project()
+        cmd = ["docker", "compose"]
+        if project_name:
+            cmd += ["--project-name", project_name]
+        cmd += ["run", "--rm", "-T", "web"]
+        logger.info("触发 Quartz 构建（HOST_NOTES_DIR=%s, project=%s）", host_data_dir, project_name or "默认")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, cwd=project_dir, env=env)
         if result.returncode != 0:
-            logger.error("Quartz 构建失败: %s", result.stderr[:500])
+            logger.error("Quartz 构建失败: %s", (result.stderr or result.stdout)[:500])
+            return False
+        # 兜底：构建成功但产物 0 篇视为失败（bind 到空目录的典型症状）
+        out = (result.stdout or "")
+        if "Found 0 input files" in out and "Done processing 0 files" in out:
+            logger.error("Quartz 构建产物为 0 篇，疑似 notes 挂载失效: %s", out[:300])
             return False
         logger.info("Quartz 构建完成")
         return True
@@ -313,8 +394,10 @@ def _syncer_loop() -> None:
     if startup_state.get("syncing"):
         logger.warning("检测到卡死状态（syncing=true），重置为待同步")
         startup_state["syncing"] = False
+        startup_state["building"] = False
         startup_state["pending"] = True
         startup_state["debounce_until"] = 0
+        startup_state["syncing_started_at"] = 0
         _write_state(startup_state)
 
     while True:
@@ -350,6 +433,7 @@ def _syncer_loop() -> None:
                     if elapsed > 600:
                         logger.warning("同步超时（%.0fs），重置卡死状态", elapsed)
                         state["syncing"] = False
+                        state["building"] = False
                         state["syncing_started_at"] = 0
                         syncing = False
                         _write_state(state)
@@ -359,6 +443,7 @@ def _syncer_loop() -> None:
 
             logger.info("检测到待同步任务，防抖窗口已过期，开始执行")
             state["syncing"] = True
+            state["building"] = False
             state["syncing_started_at"] = time.time()
             _write_state(state)
 
@@ -373,6 +458,8 @@ def _syncer_loop() -> None:
                 logger.info("无文件变更，跳过 reindex 和构建")
             else:
                 # 2. 索引重建
+                state["building"] = True
+                _write_state(state)
                 if not _trigger_reindex():
                     if sync_status == "success":
                         sync_status = "reindex_failed"
@@ -382,10 +469,11 @@ def _syncer_loop() -> None:
                     if sync_status == "success":
                         sync_status = "build_failed"
 
-            # 4. 清除 pending
+            # 4. 清除 pending 与 building
             state = _read_state()
             state["pending"] = False
             state["syncing"] = False
+            state["building"] = False
             state["syncing_started_at"] = 0
             state["last_sync_at"] = datetime.now().isoformat()
             state["last_sync_status"] = sync_status

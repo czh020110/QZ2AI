@@ -43,7 +43,11 @@ services:
       # 仅构建 notes_github_prefix 子目录，避免把仓库中私密目录发布到公网
       - NOTES_GITHUB_PREFIX=${NOTES_GITHUB_PREFIX:-}
     volumes:
-      - ./data/notes:/data/notes:ro
+      # notes 源用宿主机绝对路径 bind：syncer 在容器内通过 socket 调 compose run web 时，
+      # 相对路径 ./data/notes 会被宿主机 daemon 解析成容器内路径（不存在），导致 web 容器
+      # bind 到空目录、构建 0 篇。HOST_NOTES_DIR 由 blog 容器探测宿主机路径后注入；
+      # 宿主机端直接 docker compose up 时未注入该变量，回退 ./data（宿主机项目根下真实存在）。
+      - ${HOST_NOTES_DIR:-./data}/notes:/data/notes:ro
       - public:/public
     restart: "no"
 
