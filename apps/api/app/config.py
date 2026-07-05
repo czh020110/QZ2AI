@@ -63,6 +63,8 @@ class Settings(BaseSettings):
 
     # 反馈邮件通知
     notify_enabled: bool = False
+    # 同步失败邮件通知：sync_failed/reindex_failed/build_failed 时触发
+    sync_notify_enabled: bool = False
     notify_interval_seconds: int = Field(default=1800, ge=60, le=86400)  # 检查间隔，默认30分钟
     notify_email: str = ""  # 接收通知的邮箱
     mail_server: str = ""

@@ -154,6 +154,57 @@ def _send_email(settings, html_body: str, subject: str) -> bool:
         return False
 
 
+def notify_sync_failure(settings, failure_type: str, detail: str = "") -> None:
+    """同步失败时发邮件告警，供 syncer 调用。
+
+    failure_type: sync_failed / reindex_failed / build_failed。
+    需 sync_notify_enabled=True 且邮件配置完整才发送；通知失败只记日志，不抛异常。
+    """
+    if not settings.sync_notify_enabled:
+        return
+    if not all([settings.mail_server, settings.mail_username, settings.mail_password, settings.notify_email]):
+        logger.warning("同步通知：邮件配置不完整，跳过")
+        return
+
+    type_map = {
+        "sync_failed": "远程拉取失败",
+        "reindex_failed": "索引重建失败",
+        "build_failed": "Quartz 构建失败",
+    }
+    label = type_map.get(failure_type, failure_type)
+    blog_url = settings.allowed_origin_list[0] if settings.allowed_origin_list else "http://localhost"
+    admin_url = blog_url.rstrip("/") + "/admin/"
+
+    detail_html = f'<p style="margin:10px 0;color:#555">{detail}</p>' if detail else ""
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  body {{ font-family: Arial, sans-serif; line-height:1.6; color:#333; max-width:600px; margin:0 auto; }}
+  .header {{ background:#e85d6f; color:white; padding:20px; border-radius:8px 8px 0 0; }}
+  .content {{ background:#f9f9f9; padding:20px; border-radius:0 0 8px 8px; }}
+  .button {{ display:inline-block; padding:10px 20px; background:#e85d6f; color:white; text-decoration:none; border-radius:5px; margin-top:15px; }}
+  .footer {{ margin-top:20px; padding-top:20px; border-top:1px solid #ddd; font-size:12px; color:#999; }}
+</style></head>
+<body>
+  <div class="header">
+    <h2>⚠️ 博客同步告警</h2>
+    <p>同步流程出现失败：<strong>{label}</strong></p>
+  </div>
+  <div class="content">
+    <p>博客自动同步流程在执行过程中遇到错误，请尽快排查。</p>
+    {detail_html}
+    <a href="{admin_url}" class="button">🔗 前往管理后台查看</a>
+  </div>
+  <div class="footer">
+    <p>此邮件由博客系统自动发送</p>
+    <p>博客地址: {blog_url}</p>
+  </div>
+</body></html>"""
+
+    subject = f"【博客同步告警】{label}"
+    _send_email(settings, html, subject)
+
+
 def _notifier_loop() -> None:
     """通知器后台线程主循环"""
     logger.info("notifier 线程启动")

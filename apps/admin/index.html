@@ -388,6 +388,137 @@
     letter-spacing: .5px;
   }
 
+  .config-label .help-icon {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+    padding: 2px;
+  }
+
+  .config-label .help-icon svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .config-label .help-icon:hover {
+    color: var(--text-secondary);
+  }
+
+  .config-label .help-icon::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: .72rem;
+    line-height: 1.55;
+    white-space: normal;
+    width: 260px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+    transition-delay: .15s;
+    z-index: 100;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 400;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5);
+  }
+
+  .config-label .help-icon:hover::after,
+  .config-label .help-icon:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px);
+  }
+
+  /* ===== Switch 滑块开关 ===== */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+  }
+  .switch .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    transition: background .25s ease, border-color .25s ease;
+  }
+  .switch .slider::before {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    top: 2px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    transition: transform .25s ease, background .25s ease;
+  }
+  .switch input:checked + .slider {
+    background: var(--text-primary);
+    border-color: var(--text-primary);
+  }
+  .switch input:checked + .slider::before {
+    transform: translateX(18px);
+    background: var(--bg-deep);
+  }
+  .switch input:focus-visible + .slider {
+    box-shadow: 0 0 0 2px rgba(255,255,255,.08);
+  }
+
+  /* 通知开关卡片：横向布局，标题+副标题在左，滑块在右 */
+  .toggle-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    transition: border-color var(--transition);
+  }
+  .toggle-card:hover {
+    border-color: rgba(255,255,255,.12);
+  }
+  .toggle-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .toggle-card-title {
+    font-size: .92rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .toggle-card-sub {
+    font-size: .76rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
   .config-input {
     width: 100%;
     padding: 9px 12px;
@@ -407,12 +538,20 @@
   }
 
   .config-input.sensitive {
-    color: var(--text-muted);
+    color: var(--text-primary);
   }
 
   .config-input.sensitive::placeholder {
     color: var(--text-muted);
     font-style: italic;
+  }
+
+  /* 敏感字段未填写时：橙色虚线边框 + 淡红背景，提示必填未配置 */
+  .config-input.sensitive.is-empty {
+    color: var(--text-muted);
+    border-color: var(--dismissed);
+    border-style: dashed;
+    background: var(--dismissed-bg);
   }
 
   .config-footer {
@@ -508,6 +647,16 @@
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* tab 切换淡入：纯透明度 + 轻微上移，丝滑无加载感 */
+  @keyframes tabFade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .tab-fade-in {
+    animation: tabFade .28s cubic-bezier(.4, 0, .2, 1) both;
   }
 
   /* ===== Responsive ===== */
@@ -715,7 +864,7 @@
   <div id="tab-notify" class="hidden">
     <div class="page-header">
       <h2>自动通知</h2>
-      <p>邮件通知与告警配置</p>
+      <p>反馈通知与同步通知配置</p>
     </div>
     <div class="page-content" id="notifyContent">
       <div class="spinner"></div>
@@ -752,7 +901,6 @@
 const API_BASE = '/admin/api';
 let adminToken = '';
 let currentFilter = '';
-let configData = [];
 
 // ===== Auth =====
 function getToken() {
@@ -767,6 +915,7 @@ function setToken(token) {
 function resetToken() {
   sessionStorage.removeItem('admin_token');
   adminToken = '';
+  refreshConfigCache();  // token 变化后强制重新拉取配置
   document.getElementById('loginOverlay').classList.remove('hidden');
   document.getElementById('loginInput').value = '';
 }
@@ -824,7 +973,10 @@ function switchTab(tab) {
 // ===== Feedback =====
 async function loadFeedback() {
   const list = document.getElementById('feedbackList');
-  list.innerHTML = '<div class="spinner"></div>';
+  // 首次加载保留现有内容做淡入；无内容时给个极轻量占位（非 spinner）
+  if (!list.innerHTML.trim() || list.querySelector('.spinner')) {
+    list.innerHTML = '';
+  }
 
   try {
     const params = currentFilter ? `?status_filter=${currentFilter}` : '';
@@ -834,6 +986,7 @@ async function loadFeedback() {
     if (!res.ok) throw new Error(`${res.status}`);
     const data = await res.json();
     renderFeedback(data);
+    triggerFade(list);
   } catch (e) {
     list.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
   }
@@ -921,7 +1074,7 @@ const tabMap = {
   github_repo_url: 'sync-data', github_branch: 'sync-data',
   notes_github_prefix: 'sync-data', github_token: 'sync-data',
 
-  notify_enabled: 'notify', notify_interval_seconds: 'notify',
+  notify_enabled: 'notify', sync_notify_enabled: 'notify', notify_interval_seconds: 'notify',
   notify_email: 'notify', mail_server: 'notify',
   mail_port: 'notify', mail_username: 'notify',
   mail_password: 'notify',
@@ -951,6 +1104,7 @@ const groupMap = {
   github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
   notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
   notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
+  sync_notify_enabled: '邮件通知',
   notify_email: '邮件通知', mail_server: '邮件通知',
   mail_port: '邮件通知', mail_username: '邮件通知',
   mail_password: '邮件通知',
@@ -958,24 +1112,236 @@ const groupMap = {
 
 const syncOnlyKeys = new Set(['remote_type', 'auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
 
+// 字段可读标签：保留 Base URL / API Key / Token 等通用缩写，其余下划线字段译为中文
+const fieldLabels = {
+  llm_base_url: 'LLM Base URL',
+  llm_api_key: 'LLM API Key',
+  llm_model: 'LLM 模型',
+  embedding_provider: '嵌入模型供应商',
+  embedding_api_key: 'Embedding API Key',
+  embedding_model: '嵌入模型',
+  embedding_dimensions: '嵌入维度',
+  embedding_text_type: '嵌入文本类型',
+  rerank_provider: '重排序供应商',
+  rerank_api_key: 'Rerank API Key',
+  rerank_model: '重排序模型',
+  rerank_top_n: '重排序保留数量',
+  rerank_enabled: '启用重排序',
+  rerank_instruct: '重排序指令',
+  llm_timeout_seconds: 'LLM 超时（秒）',
+  embedding_timeout_seconds: '嵌入超时（秒）',
+  rerank_timeout_seconds: '重排序超时（秒）',
+  http_max_retries: 'HTTP 最大重试次数',
+  http_retry_backoff_seconds: '重试退避（秒）',
+  embedding_batch_size: '嵌入批量大小',
+  similarity_top_k: '检索召回数量',
+  llm_mock: 'LLM Mock 模式',
+  chroma_dir: 'Chroma 存储目录',
+  notes_dir: '笔记目录',
+  docstore_path: 'Docstore 路径',
+  db_path: 'SQLite 数据库路径',
+  chroma_collection: 'Chroma 集合名',
+  notes_assets_folders: '附件文件夹名',
+  cos_secret_id: 'COS Secret ID',
+  cos_secret_key: 'COS Secret Key',
+  cos_region: 'COS 地域',
+  cos_endpoint: 'COS Endpoint',
+  cos_bucket: 'COS 存储桶',
+  notes_cos_prefix: 'COS 笔记前缀',
+  github_repo_url: 'GitHub 仓库地址',
+  github_branch: 'GitHub 分支',
+  notes_github_prefix: 'GitHub 笔记前缀',
+  github_token: 'GitHub Token',
+  notify_enabled: '反馈通知',
+  sync_notify_enabled: '同步通知',
+  notify_interval_seconds: '通知检查间隔（秒）',
+  notify_email: '接收通知邮箱',
+  mail_server: 'SMTP 服务器',
+  mail_port: 'SMTP 端口',
+  mail_username: '发件邮箱',
+  mail_password: 'SMTP 密码/授权码',
+  reindex_token: 'Reindex Token',
+  admin_token: 'Admin Token',
+  allowed_origins: 'CORS 允许来源',
+};
+
+// 需要帮助图标的字段及其说明文案
+const fieldHints = {
+  embedding_text_type: '嵌入时文本用途类型：document（文档检索，默认）或 query（查询向量化）。建议保持默认 document，仅在自定义检索流程时调整。',
+  rerank_top_n: '重排序后保留的文档条数。值越小越精炼但可能漏掉相关内容，建议 3~5，留空则保留全部召回结果。',
+  rerank_instruct: '给重排序模型的指令文本（如「按相关性排序博客文章」）。部分模型支持，可留空走默认行为。',
+  similarity_top_k: '向量检索召回的文档数量，再交给 LLM 引用。值大召回全但耗时高，建议 5（默认）。',
+  llm_mock: '开启后 LLM 不真实调用，返回模拟响应。仅用于联调调试，生产环境务必关闭（默认关闭）。',
+  embedding_batch_size: '嵌入向量单次请求批量。值大速度快但易触发限流，建议保持默认 10。',
+  notes_assets_folders: '逗号分隔的附件文件夹名（默认 assets）。这些文件夹不会被索引为文章，但会被同步下载以显示文章图片。',
+  notes_cos_prefix: 'COS 存储桶中笔记所在路径前缀（如 notes/blog）。留空表示从桶根目录同步。',
+  notes_github_prefix: 'GitHub 仓库内笔记所在子目录（如 blog/online）。留空表示从仓库根目录拉取。',
+  github_token: 'GitHub Personal Access Token，私有仓库拉取必需。建议使用 fine-grained token 并仅授予仓库只读权限。',
+  git_proxy: 'git clone/pull 使用的 HTTP 代理（如 http://172.17.0.1:7890）。需先在宿主机开启 allow-lan，留空表示直连。',
+  git_accelerator: 'GitHub 加速镜像前缀（如 https://ghfast.top）。国内直连不稳定时使用，留空表示不加速。',
+  notify_interval_seconds: '后台扫描未处理反馈并发送邮件的间隔。范围 60~86400 秒，默认 1800（30 分钟）。',
+  notify_enabled: '开启后，有新的未处理用户反馈时自动发邮件提醒。需先配置下方邮件通知方式。',
+  sync_notify_enabled: '开启后，远程拉取、索引重建或 Quartz 构建失败时自动发邮件告警。需先配置下方邮件通知方式。',
+  mail_port: 'SMTP 服务器端口，SSL 通常 465，TLS 通常 587。默认 465。',
+  reindex_token: '调用 /api/reindex 重建索引时所需的鉴权 Token。建议设置为长随机串，留空则禁用该接口。',
+  admin_token: '访问本管理后台及 /admin/api 接口所需的 Token。建议设置为长随机串，泄露后任何人可改配置。',
+  allowed_origins: 'CORS 允许的来源，逗号分隔（如 https://blog.com,http://localhost）。限制只有这些域名的前端可调用 API。',
+};
+
+// 生成帮助图标 HTML（lucide circle-question-mark）
+function helpIcon(key) {
+  const tip = fieldHints[key];
+  if (!tip) return '';
+  return `<span class="help-icon" data-tip="${esc(tip)}" tabindex="0" aria-label="字段说明">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <path d="M12 17h.01"/>
+    </svg>
+  </span>`;
+}
+
+// 取字段可读标签，无映射时回退到原始 key
+function fieldLabel(key) {
+  return fieldLabels[key] || key;
+}
+
+// 配置数据全局缓存：首次进入任一配置 tab 才 fetch，后续切换直接用缓存渲染，避免每次切换都显示加载圆圈
+let configCache = null;
+let configCacheToken = '';  // token 变化时强制重新拉取
+
 async function loadTabConfig(tab, containerId) {
   const content = document.getElementById(containerId);
-  content.innerHTML = '<div class="spinner"></div>';
 
+  // 缓存命中且 token 未变：直接渲染，无加载态
+  if (configCache && configCacheToken === adminToken) {
+    renderTab(tab, containerId, configCache);
+    triggerFade(content);
+    return;
+  }
+
+  // 首次加载或 token 变化：拉取配置（不显示 spinner，用极淡的过渡）
   try {
     const res = await fetch(`${API_BASE}/config`, {
       headers: { 'X-Admin-Token': adminToken }
     });
     if (!res.ok) throw new Error(`${res.status}`);
-    configData = await res.json();
-    renderTab(tab, containerId, configData);
+    configCache = await res.json();
+    configCacheToken = adminToken;
+    renderTab(tab, containerId, configCache);
+    triggerFade(content);
   } catch (e) {
     content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
   }
 }
 
+// 触发 tab 内容淡入动画（丝滑切换效果）
+function triggerFade(content) {
+  content.classList.remove('tab-fade-in');
+  // 强制 reflow 重新触发动画
+  void content.offsetWidth;
+  content.classList.add('tab-fade-in');
+}
+
+// 配置保存后刷新缓存（避免显示旧值）
+function refreshConfigCache() {
+  configCache = null;
+}
+
+// notify tab 独立渲染：顶部「反馈通知/同步通知」两滑块卡片，下方「通知方式」大卡片（预留扩展）
+function renderNotifyTab(content, containerId, items) {
+  const find = (key) => items.find(i => i.key === key);
+  const boolVal = (item) => item && (item.value === true || item.value === 'True' || item.value === 'true');
+  const fbItem = find('notify_enabled');
+  const syncItem = find('sync_notify_enabled');
+
+  // 通知方式分组：notify tab 内除两个开关外的字段都归到「邮件通知」
+  const methodFields = items.filter(i =>
+    tabMap[i.key] === 'notify' && i.key !== 'notify_enabled' && i.key !== 'sync_notify_enabled'
+  );
+
+  // 渲染单个开关卡片
+  const toggleCard = (item, title, sub) => {
+    if (!item) return '';
+    const checked = boolVal(item);
+    return `<div class="toggle-card">
+      <div class="toggle-card-text">
+        <span class="toggle-card-title">${esc(title)}${helpIcon(item.key)}</span>
+        <span class="toggle-card-sub">${esc(sub)}</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" data-key="${esc(item.key)}" ${checked ? 'checked' : ''}>
+        <span class="slider"></span>
+      </label>
+    </div>`;
+  };
+
+  // 渲染通知方式字段（复用通用 input 渲染逻辑）
+  const renderField = (f) => {
+    const isSensitive = f.sensitive;
+    if (f.type === 'bool') {
+      const value = boolVal(f);
+      return `<div class="config-item">
+        <label class="config-label">${fieldLabel(f.key)}${helpIcon(f.key)}</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+          <label class="switch">
+            <input type="checkbox" data-key="${esc(f.key)}" ${value ? 'checked' : ''}>
+            <span class="slider"></span>
+          </label>
+          <span style="font-size:.78rem;color:var(--text-secondary)">${value ? '已开启' : '已关闭'}</span>
+        </div>
+      </div>`;
+    }
+    const value = f.value;
+    const sensitiveEmpty = isSensitive && !String(value).trim();
+    return `<div class="config-item">
+      <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+      <input class="config-input${isSensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text"
+        data-key="${esc(f.key)}" data-sensitive="${isSensitive}"
+        data-original="${isSensitive ? esc(String(value)) : ''}"
+        value="${esc(String(value))}"
+        placeholder="${isSensitive ? (sensitiveEmpty ? '未填写，点击输入' : '输入新值覆盖') : ''}"
+        ${isSensitive ? 'onfocus="this.select()"' : ''}>
+    </div>`;
+  };
+
+  let methodHtml = '';
+  methodFields.forEach(f => { methodHtml += renderField(f); });
+
+  content.innerHTML = `
+    <div class="config-section">
+      <div class="config-section-title">通知类型</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        ${toggleCard(fbItem, '反馈通知', '有新用户反馈时邮件提醒')}
+        ${toggleCard(syncItem, '同步通知', '同步/索引/构建失败时邮件告警')}
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">通知方式</div>
+      <div style="font-size:.78rem;color:var(--text-secondary);margin-bottom:14px">
+        邮件通知${methodFields.length ? '' : '（暂无可配置项）'}
+      </div>
+      <div class="config-grid">${methodHtml}</div>
+      <div style="font-size:.72rem;color:var(--text-muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        目前仅支持邮件通知方式，后续可能扩展其他通知方式（如 Webhook、企业微信等）
+      </div>
+    </div>
+
+    <div class="config-footer">
+      <button class="btn-save" id="save-${containerId}" onclick="saveTabConfig('${containerId}')">保存配置</button>
+      <span class="save-hint">修改后即时生效</span>
+    </div>
+  `;
+}
+
 function renderTab(tab, containerId, items) {
   const content = document.getElementById(containerId);
+  // notify tab 走独立渲染：顶部两开关卡片 + 下方「通知方式」大卡片
+  if (tab === 'notify') {
+    renderNotifyTab(content, containerId, items);
+    return;
+  }
   const groups = {};
 
   items.forEach(item => {
@@ -1003,7 +1369,7 @@ function renderTab(tab, containerId, items) {
 
       if (f.key === 'embedding_provider') {
         html += `<div class="config-item">
-          <label class="config-label">${esc(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${helpIcon(f.key)}</label>
           <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
             <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
             <option value="openai" ${value === 'openai' ? 'selected' : ''}>openai（OpenAI 兼容）</option>
@@ -1012,7 +1378,7 @@ function renderTab(tab, containerId, items) {
         </div>`;
       } else if (f.key === 'rerank_provider') {
         html += `<div class="config-item">
-          <label class="config-label">${esc(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${helpIcon(f.key)}</label>
           <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
             <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
           </select>
@@ -1020,20 +1386,24 @@ function renderTab(tab, containerId, items) {
         </div>`;
       } else if (inputType === 'checkbox') {
         html += `<div class="config-item">
-          <label class="config-label">${esc(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
-            <input type="checkbox" data-key="${esc(f.key)}" ${value ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px">
+          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+            <label class="switch">
+              <input type="checkbox" data-key="${esc(f.key)}" ${value ? 'checked' : ''}>
+              <span class="slider"></span>
+            </label>
             <span style="font-size:.78rem;color:var(--text-secondary)">${value ? '已开启' : '已关闭'}</span>
-          </label>
+          </div>
         </div>`;
       } else {
+        const sensitiveEmpty = isSensitive && !String(value).trim();
         html += `<div class="config-item">
-          <label class="config-label">${esc(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
-          <input class="config-input${isSensitive ? ' sensitive' : ''}" type="text"
+          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+          <input class="config-input${isSensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text"
             data-key="${esc(f.key)}" data-sensitive="${isSensitive}"
             data-original="${isSensitive ? esc(String(value)) : ''}"
             value="${esc(String(value))}"
-            placeholder="${isSensitive ? '输入新值覆盖' : ''}"
+            placeholder="${isSensitive ? (sensitiveEmpty ? '未填写，点击输入' : '输入新值覆盖') : ''}"
             ${isSensitive ? 'onfocus="this.select()"' : ''}>
         </div>`;
       }
@@ -1092,6 +1462,13 @@ async function saveTabConfig(containerId) {
     if (!res.ok) throw new Error(`${res.status}`);
     const result = await res.json();
     showToast(result.message || '配置已更新，即时生效', 'success');
+    // 刷新缓存并重新渲染当前 tab，让保存的值立即反映在界面上
+    refreshConfigCache();
+    const tabKey = containerId === 'modelContent' ? 'model'
+      : containerId === 'syncDataContent' ? 'sync-data'
+      : containerId === 'notifyContent' ? 'notify'
+      : containerId === 'securityContent' ? 'security' : '';
+    if (tabKey) await loadTabConfig(tabKey, containerId);
   } catch (e) {
     showToast('保存失败：' + e.message, 'error');
   }
@@ -1103,22 +1480,30 @@ async function saveTabConfig(containerId) {
 // ===== Sync Status =====
 let syncPollTimer = null;
 
-async function loadSync() {
+async function loadSync(force = false) {
   const content = document.getElementById('syncContent');
-  content.innerHTML = '<div class="spinner"></div>';
-
-  try {
-    const [statusRes, configRes] = await Promise.all([
-      fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } }),
-      fetch(`${API_BASE}/config`, { headers: { 'X-Admin-Token': adminToken } })
-    ]);
-    if (!statusRes.ok || !configRes.ok) throw new Error('加载失败');
-    const status = await statusRes.json();
-    const config = await configRes.json();
-    renderSync(status, config);
-    loadGitHubWorkflow();
-  } catch (e) {
-    content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
+  const hasContent = content.innerHTML.trim() && !content.querySelector('.spinner');
+  // 已有内容且非强制刷新：直接淡入已有内容，后台静默拉取最新状态刷新（无加载圆圈）
+  if (hasContent && !force) {
+    triggerFade(content);
+    // 后台静默刷新同步状态（不阻塞显示）
+    pollSyncStatus().then(() => loadGitHubWorkflow());
+  } else {
+    // 首次加载或保存后强制刷新：拉取状态+配置
+    try {
+      const [statusRes, configRes] = await Promise.all([
+        fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } }),
+        fetch(`${API_BASE}/config`, { headers: { 'X-Admin-Token': adminToken } })
+      ]);
+      if (!statusRes.ok || !configRes.ok) throw new Error('加载失败');
+      const status = await statusRes.json();
+      const config = await configRes.json();
+      renderSync(status, config);
+      triggerFade(content);
+      loadGitHubWorkflow();
+    } catch (e) {
+      content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
+    }
   }
 
   // 自动刷新同步状态
@@ -1210,7 +1595,6 @@ function renderSync(status, config) {
   const debounceLabels = {
     debounce_seconds: '防抖窗口（秒）', webhook_secret: 'Webhook 密钥',
   };
-  const notifyKeys = ['notify_enabled', 'notify_interval_seconds', 'notify_email', 'mail_server', 'mail_port', 'mail_username', 'mail_password'];
   const proxyKeys = ['git_proxy', 'git_accelerator'];
   const proxyLabels = {
     git_proxy: 'Git 代理地址', git_accelerator: '加速镜像前缀',
@@ -1244,42 +1628,13 @@ function renderSync(status, config) {
     const val = findVal(key);
     const sensitive = findSensitive(key);
     const label = debounceLabels[key];
+    const sensitiveEmpty = sensitive && !String(val).trim();
     configHtml += `<div class="config-item">
-      <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
-      <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+      <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(key)}</label>
+      <input class="config-input${sensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
         data-original="${sensitive ? esc(String(val)) : ''}"
-        value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
+        value="${esc(String(val))}" placeholder="${sensitive ? (sensitiveEmpty ? '未填写，点击输入' : '输入新值覆盖') : ''}">
     </div>`;
-  });
-  // 通知配置
-  const notifyLabels = {
-    notify_enabled: '启用邮件通知', notify_interval_seconds: '检查间隔（秒，默认1800）',
-    notify_email: '接收通知邮箱', mail_server: 'SMTP 服务器',
-    mail_port: 'SMTP 端口', mail_username: '发件邮箱',
-    mail_password: 'SMTP 密码/授权码',
-  };
-  let notifyHtml = '';
-  notifyKeys.forEach(key => {
-    const val = findVal(key);
-    const sensitive = findSensitive(key);
-    const label = notifyLabels[key] || key;
-    if (key === 'notify_enabled') {
-      const checked = isBool(val);
-      notifyHtml += `<div class="config-item">
-        <label class="config-label">${esc(label)}</label>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px">
-          <input type="checkbox" data-key="${key}" ${checked ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px">
-          <span style="font-size:.78rem;color:var(--text-secondary)">${checked ? '已开启' : '已关闭'}</span>
-        </label>
-      </div>`;
-    } else {
-      notifyHtml += `<div class="config-item">
-        <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
-        <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
-          data-original="${sensitive ? esc(String(val)) : ''}"
-          value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
-      </div>`;
-    }
   });
   // 网络代理与加速配置
   let proxyHtml = '';
@@ -1288,7 +1643,7 @@ function renderSync(status, config) {
     const label = proxyLabels[key] || key;
     const ph = key === 'git_proxy' ? 'http://172.17.0.1:7890（留空=直连）' : 'https://ghfast.top（留空=不加速）';
     proxyHtml += `<div class="config-item">
-      <label class="config-label">${esc(label)}</label>
+      <label class="config-label">${esc(label)}${helpIcon(key)}</label>
       <input class="config-input" type="text" data-key="${key}" value="${esc(String(val))}" placeholder="${ph}">
     </div>`;
   });
@@ -1348,11 +1703,6 @@ function renderSync(status, config) {
     </div>
 
     <div class="config-section">
-      <div class="config-section-title">反馈通知（邮件）</div>
-      <div class="config-grid">${notifyHtml}</div>
-    </div>
-
-    <div class="config-section">
       <div class="config-section-title">GitHub Actions 自动化</div>
       <div id="githubWorkflowStatus" style="padding:4px 0">
         <div class="spinner" style="width:24px;height:24px;border-width:2px"></div>
@@ -1404,7 +1754,7 @@ async function saveSyncConfig() {
     });
     if (!res.ok) throw new Error(`${res.status}`);
     showToast('保存成功，即时生效', 'success');
-    loadSync();
+    loadSync(true);
     // auto + github 模式：检查 workflow 是否存在，不存在则提示创建
     if (mode === 'auto') {
       const rt = document.querySelector('#tab-sync [data-key="remote_type"]');
@@ -1441,7 +1791,7 @@ async function triggerSync() {
     });
     if (!res.ok) throw new Error(`${res.status}`);
     showToast('同步任务已触发，syncer 容器将自动执行', 'success');
-    loadSync();
+    loadSync(true);
   } catch (e) {
     showToast('触发失败：' + e.message, 'error');
   }

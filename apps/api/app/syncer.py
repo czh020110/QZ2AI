@@ -465,6 +465,14 @@ def _syncing_loop() -> None:
             write_sync_state(state)
 
             logger.info("同步流程结束: %s", sync_status)
+
+            # 同步失败且开启同步通知时发邮件告警（只在最终失败态触发一次）
+            if sync_status in ("sync_failed", "reindex_failed", "build_failed"):
+                try:
+                    from .notifier import notify_sync_failure
+                    notify_sync_failure(settings, sync_status)
+                except Exception as ne:
+                    logger.warning("同步通知发送失败: %s", ne)
         except Exception as e:
             logger.error("syncer 循环异常: %s", e)
 
