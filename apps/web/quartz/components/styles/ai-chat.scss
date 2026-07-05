@@ -192,6 +192,7 @@
 
   strong { font-weight: 700; }
   em { font-style: italic; }
+  s { text-decoration: line-through; }
 
   a {
     color: var(--secondary);
@@ -200,11 +201,15 @@
   }
   a:hover { opacity: 0.8; }
 
-  h4.ai-chat-md__h {
-    font-size: 0.95rem;
+  h1.ai-chat-md__h, h2.ai-chat-md__h, h3.ai-chat-md__h, h4.ai-chat-md__h {
     font-weight: 700;
     margin: 0.6em 0 0.3em;
+    line-height: 1.3;
   }
+  h1.ai-chat-md__h { font-size: 1.3em; }
+  h2.ai-chat-md__h { font-size: 1.15em; }
+  h3.ai-chat-md__h { font-size: 1.0em; }
+  h4.ai-chat-md__h { font-size: 0.92em; }
 
   ul.ai-chat-md__ul,
   ol.ai-chat-md__ol {
@@ -218,6 +223,47 @@
   }
   ul.ai-chat-md__ul { list-style: disc; }
   ol.ai-chat-md__ol { list-style: decimal; }
+
+  hr.ai-chat-md__hr {
+    border: none;
+    border-top: 1px solid var(--lightgray);
+    margin: 0.8em 0;
+  }
+
+  table.ai-chat-md__table {
+    border-collapse: collapse;
+    margin: 0.5em 0;
+    width: 100%;
+    font-size: 0.85em;
+    overflow-x: auto;
+    display: block;
+  }
+  tr.ai-chat-md__tr {
+    border-top: 1px solid var(--lightgray);
+  }
+  th.ai-chat-md__th,
+  td.ai-chat-md__td {
+    padding: 0.3em 0.6em;
+    border: 1px solid var(--lightgray);
+    text-align: left;
+  }
+  th.ai-chat-md__th {
+    font-weight: 600;
+    background: var(--highlight);
+  }
+
+  blockquote.ai-chat-md__blockquote {
+    margin: 0.5em 0;
+    padding: 0.3em 0.8em;
+    border-left: 3px solid var(--tertiary);
+    background: var(--highlight);
+    border-radius: 0 6px 6px 0;
+  }
+  blockquote.ai-chat-md__blockquote p.ai-chat-md__blockquote-line {
+    margin: 0.15em 0;
+    font-style: italic;
+    opacity: 0.85;
+  }
 
   pre.ai-chat-md__code-block {
     margin: 0.5em 0;
@@ -235,25 +281,56 @@
     border-radius: 0;
   }
 
-  blockquote.ai-chat-md__blockquote {
-    margin: 0.5em 0;
-    padding: 0.3em 0.8em;
-    border-left: 3px solid var(--tertiary);
-    background: var(--highlight);
-    border-radius: 0 6px 6px 0;
-  }
-  blockquote.ai-chat-md__blockquote p.ai-chat-md__blockquote-line {
-    margin: 0.15em 0;
-    font-style: italic;
-    opacity: 0.85;
-  }
-
   code.ai-chat-md__inline-code {
     font-family: var(--font-mono, ui-monospace, monospace);
     font-size: 0.85em;
     padding: 0.15em 0.35em;
     border-radius: 4px;
     background: rgba(0, 0, 0, 0.06);
+  }
+
+  img.ai-chat-md__img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 0.5em 0;
+  }
+
+  // KaTeX 公式（依赖全局 katex.min.css，此处仅保证布局）
+  .ai-chat-md__katex-block {
+    display: block;
+    margin: 0.6em 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .ai-chat-md__katex-inline {
+    display: inline;
+  }
+
+  // 脚注
+  .ai-chat-md__footnotes {
+    margin-top: 0.6em;
+    padding-top: 0.4em;
+    border-top: 1px solid var(--lightgray);
+    font-size: 0.8em;
+    color: var(--darkgray);
+    line-height: 1.5;
+  }
+  .ai-chat-md__fn-ref {
+    cursor: pointer;
+    font-size: 0.75em;
+    vertical-align: super;
+    line-height: 0;
+    color: var(--secondary);
+    text-decoration: underline;
+    text-underline-offset: 1px;
+  }
+  .ai-chat-md__fn-sep {
+    margin-right: 0.3em;
+    opacity: 0.5;
+  }
+  .ai-chat-md__fn-item {
+    margin-right: 0.6em;
   }
 }
 

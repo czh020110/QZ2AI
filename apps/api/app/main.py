@@ -132,6 +132,7 @@ def reindex_endpoint(x_reindex_token: str | None = Header(default=None)) -> Rein
 
 # 通用同步 webhook：供 GitHub Actions / 其他外部 Source 触发，对应工作流中的 /api/webhook/sync。
 # 鉴权：X-Webhook-Secret（或 query/body 里的 secret）匹配 webhook_secret，否则回退 admin token。
+# 不限 auto_sync_enabled 模式：手动模式下也会记录 pending，UI 显示"待同步"提示用户手动触发。
 @app.post("/api/webhook/sync", response_model=WebhookResponse)
 def webhook_sync(
     secret: str | None = None,
@@ -140,6 +141,4 @@ def webhook_sync(
 ) -> WebhookResponse:
     verify_webhook(x_webhook_secret, x_admin_token, secret)
     s = get_settings()
-    if not s.auto_sync_enabled:
-        raise AppError(status.HTTP_403_FORBIDDEN, "forbidden", "自动同步未启用")
-    return trigger_sync_pending(s)
+    return trigger_sync_pending(s, skip_auto=True)

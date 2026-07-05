@@ -7,629 +7,613 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg-deep: #0f1117;
-  --bg-panel: #161822;
-  --bg-card: #1c1f2e;
-  --bg-input: #232637;
-  --border: #2a2d3e;
-  --border-focus: #5b6abf;
-  --text-primary: #e4e6f0;
-  --text-secondary: #8b8fa3;
-  --text-muted: #5c6078;
-  --accent: #6c7ee1;
-  --accent-hover: #8494f0;
-  --error: #e85d6f;
-  --error-bg: rgba(232,93,111,.12);
-  --suggestion: #5b9cf5;
-  --suggestion-bg: rgba(91,156,245,.12);
-  --other: #8b8fa3;
-  --other-bg: rgba(139,143,163,.12);
-  --resolved: #4ecb8d;
-  --resolved-bg: rgba(78,203,141,.12);
-  --dismissed: #f0a854;
-  --dismissed-bg: rgba(240,168,84,.12);
-  --pending: #6c7ee1;
-  --pending-bg: rgba(108,126,225,.12);
-  --radius: 8px;
-  --radius-sm: 5px;
-  --shadow: 0 2px 12px rgba(0,0,0,.3);
-  --transition: .2s cubic-bezier(.4,0,.2,1);
-}
-
-html { font-size: 15px; }
-
-body {
-  font-family: 'Noto Sans SC', sans-serif;
-  background: var(--bg-deep);
-  color: var(--text-primary);
-  height: 100vh;
-  display: flex;
-  overflow: hidden;
-}
-
-/* ===== Sidebar ===== */
-.sidebar {
-  width: 220px;
-  min-height: 100vh;
-  background: var(--bg-panel);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
-}
-
-.sidebar::after {
-  content: '';
-  position: absolute;
-  top: 0; right: -1px;
-  width: 1px; height: 100%;
-  background: linear-gradient(to bottom, var(--accent) 0%, transparent 40%, transparent 60%, var(--accent) 100%);
-  opacity: .3;
-}
-
-.sidebar-brand {
-  padding: 28px 24px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.sidebar-brand h1 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: .5px;
-  color: var(--text-primary);
-}
-
-.sidebar-brand p {
-  font-size: .72rem;
-  color: var(--text-muted);
-  margin-top: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.sidebar-nav {
-  padding: 16px 12px;
-  flex: 1;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all var(--transition);
-  color: var(--text-secondary);
-  font-size: .88rem;
-  font-weight: 400;
-  border: 1px solid transparent;
-  user-select: none;
-}
-
-.nav-item:hover {
-  background: var(--bg-card);
-  color: var(--text-primary);
-}
-
-.nav-item.active {
-  background: rgba(108,126,225,.1);
-  color: var(--accent);
-  border-color: rgba(108,126,225,.2);
-  font-weight: 500;
-}
-
-.nav-item svg {
-  width: 18px; height: 18px;
-  flex-shrink: 0;
-}
-
-.sidebar-footer {
-  padding: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.token-status {
-  font-size: .72rem;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.token-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--resolved);
-  box-shadow: 0 0 6px var(--resolved);
-}
-
-.btn-token {
-  margin-top: 8px;
-  width: 100%;
-  padding: 7px;
-  font-size: .75rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-
-.btn-token:hover {
-  border-color: var(--border-focus);
-  color: var(--text-primary);
-}
-
-/* ===== Main ===== */
-.main {
-  flex: 1;
-  overflow-y: auto;
-  background: var(--bg-deep);
-  position: relative;
-}
-
-.main::before {
-  content: '';
-  position: fixed;
-  top: 0; left: 220px; right: 0; bottom: 0;
-  background:
-    radial-gradient(ellipse at 70% 10%, rgba(108,126,225,.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 30% 90%, rgba(78,203,141,.03) 0%, transparent 50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.page-header {
-  padding: 32px 40px 0;
-  position: relative;
-  z-index: 1;
-}
-
-.page-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -.3px;
-}
-
-.page-header p {
-  color: var(--text-muted);
-  font-size: .82rem;
-  margin-top: 4px;
-}
-
-.page-content {
-  padding: 24px 40px 40px;
-  position: relative;
-  z-index: 1;
-}
-
-/* ===== Feedback ===== */
-.filter-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  padding: 7px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: .8rem;
-  cursor: pointer;
-  transition: all var(--transition);
-  font-family: inherit;
-}
-
-.filter-btn:hover { border-color: var(--accent); color: var(--text-primary); }
-
-.filter-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(108,126,225,.3);
-}
-
-.feedback-list { display: flex; flex-direction: column; gap: 10px; }
-
-.feedback-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-  transition: all var(--transition);
-  animation: fadeUp .3s ease-out both;
-}
-
-.feedback-card:hover {
-  border-color: rgba(108,126,225,.3);
-  box-shadow: 0 4px 20px rgba(0,0,0,.2);
-}
-
-.feedback-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.feedback-id {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .75rem;
-  color: var(--text-muted);
-  background: var(--bg-input);
-  padding: 2px 8px;
-  border-radius: 3px;
-}
-
-.tag {
-  font-size: .7rem;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-weight: 500;
-  letter-spacing: .3px;
-}
-
-.tag-error { color: var(--error); background: var(--error-bg); }
-.tag-suggestion { color: var(--suggestion); background: var(--suggestion-bg); }
-.tag-other { color: var(--other); background: var(--other-bg); }
-.tag-pending { color: var(--pending); background: var(--pending-bg); }
-.tag-resolved { color: var(--resolved); background: var(--resolved-bg); }
-.tag-dismissed { color: var(--dismissed); background: var(--dismissed-bg); }
-
-.feedback-title {
-  font-weight: 500;
-  font-size: .92rem;
-  color: var(--text-primary);
-  margin-right: auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 300px;
-}
-
-.feedback-time {
-  font-size: .72rem;
-  color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.feedback-body {
-  color: var(--text-secondary);
-  font-size: .85rem;
-  line-height: 1.6;
-  margin-bottom: 12px;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.feedback-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  padding: 5px 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: .76rem;
-  cursor: pointer;
-  transition: all var(--transition);
-  font-family: inherit;
-}
-
-.action-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.action-btn.btn-resolve:hover {
-  border-color: var(--resolved);
-  color: var(--resolved);
-}
-
-.action-btn.btn-dismiss:hover {
-  border-color: var(--dismissed);
-  color: var(--dismissed);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-muted);
-}
-
-.empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .4; }
-.empty-state p { font-size: .88rem; }
-
-/* ===== Config ===== */
-.config-section {
-  margin-bottom: 28px;
-}
-
-.config-section-title {
-  font-size: .78rem;
-  font-weight: 500;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.config-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.config-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.config-label {
-  font-size: .78rem;
-  color: var(--text-secondary);
-  font-family: 'JetBrains Mono', monospace;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.config-label .sensitive-badge {
-  font-size: .6rem;
-  background: var(--error-bg);
-  color: var(--error);
-  padding: 1px 5px;
-  border-radius: 3px;
-  letter-spacing: .5px;
-}
-
-.config-input {
-  width: 100%;
-  padding: 9px 12px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .82rem;
-  transition: all var(--transition);
-  outline: none;
-}
-
-.config-input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(108,126,225,.15);
-}
-
-.config-input.sensitive {
-  color: var(--text-muted);
-}
-
-.config-input.sensitive::placeholder {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.config-footer {
-  margin-top: 24px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.btn-save {
-  padding: 10px 28px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  font-size: .88rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition);
-  font-family: inherit;
-}
-
-.btn-save:hover {
-  background: var(--accent-hover);
-  box-shadow: 0 4px 16px rgba(108,126,225,.3);
-  transform: translateY(-1px);
-}
-
-.btn-save:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.save-hint {
-  font-size: .75rem;
-  color: var(--text-muted);
-}
-
-/* ===== Toast ===== */
-.toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  padding: 12px 20px;
-  border-radius: var(--radius);
-  font-size: .84rem;
-  z-index: 1000;
-  transform: translateY(80px);
-  opacity: 0;
-  transition: all .35s cubic-bezier(.4,0,.2,1);
-  pointer-events: none;
-  max-width: 400px;
-}
-
-.toast.show {
-  transform: translateY(0);
-  opacity: 1;
-}
-
-.toast.success {
-  background: var(--resolved-bg);
-  border: 1px solid rgba(78,203,141,.3);
-  color: var(--resolved);
-}
-
-.toast.error {
-  background: var(--error-bg);
-  border: 1px solid rgba(232,93,111,.3);
-  color: var(--error);
-}
-
-.toast.info {
-  background: var(--suggestion-bg);
-  border: 1px solid rgba(91,156,245,.3);
-  color: var(--suggestion);
-}
-
-/* ===== Loading ===== */
-.spinner {
-  width: 20px; height: 20px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  margin: 40px auto;
-}
-
-/* ===== Animations ===== */
-@keyframes spin { to { transform: rotate(360deg); } }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ===== Responsive ===== */
-@media (max-width: 768px) {
-  body { flex-direction: column; overflow-y: auto; }
-  .sidebar {
-    width: 100%;
-    min-height: auto;
-    flex-direction: row;
-    align-items: center;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 0 16px;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-deep: #0a0a0a;
+    --bg-panel: #111111;
+    --bg-card: #141414;
+    --bg-input: #1a1a1a;
+    --border: #262626;
+    --border-focus: #404040;
+    --text-primary: #f0f0f0;
+    --text-secondary: #a3a3a3;
+    --text-muted: #737373;
+    --accent: #ffffff;
+    --accent-hover: #e5e5e5;
+    --error: #ef4444;
+    --error-bg: rgba(239,68,68,.10);
+    --suggestion: #a3a3a3;
+    --suggestion-bg: rgba(163,163,163,.10);
+    --other: #737373;
+    --other-bg: rgba(115,115,115,.10);
+    --resolved: #22c55e;
+    --resolved-bg: rgba(34,197,94,.10);
+    --dismissed: #f59e0b;
+    --dismissed-bg: rgba(245,158,11,.10);
+    --pending: #a3a3a3;
+    --pending-bg: rgba(163,163,163,.10);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 0 0 1px rgba(255,255,255,.04);
+    --transition: .2s cubic-bezier(.4,0,.2,1);
   }
-  .sidebar::after { display: none; }
-  .sidebar-brand { padding: 12px 16px; border-bottom: none; }
-  .sidebar-brand h1 { font-size: .95rem; }
-  .sidebar-brand p { display: none; }
-  .sidebar-nav { padding: 8px; display: flex; gap: 4px; }
-  .sidebar-footer { display: none; }
-  .main::before { left: 0; }
-  .page-header { padding: 20px 16px 0; }
-  .page-content { padding: 16px; }
-  .config-grid { grid-template-columns: 1fr; }
-  .feedback-title { max-width: 140px; }
-}
 
-/* ===== Login Overlay ===== */
-.login-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-deep);
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+  html { font-size: 15px; }
 
-.login-box {
-  width: 360px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 40px 32px;
-  text-align: center;
-}
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
 
-.login-box h2 {
-  margin-bottom: 8px;
-  font-size: 1.2rem;
-}
+  /* ===== Sidebar ===== */
+  .sidebar {
+    width: 220px;
+    min-height: 100vh;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
 
-.login-box p {
-  color: var(--text-muted);
-  font-size: .82rem;
-  margin-bottom: 24px;
-}
+  .sidebar-brand {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+  }
 
-.login-input {
-  width: 100%;
-  padding: 11px 14px;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: .88rem;
-  outline: none;
-  transition: all var(--transition);
-  text-align: center;
-  letter-spacing: 2px;
-}
+  .sidebar-brand h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    color: var(--text-primary);
+  }
 
-.login-input:focus {
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 3px rgba(108,126,225,.15);
-}
+  .sidebar-brand p {
+    font-size: .72rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
 
-.login-btn {
-  margin-top: 16px;
-  width: 100%;
-  padding: 11px;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  font-size: .9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition);
-  font-family: inherit;
-}
+  .sidebar-nav {
+    padding: 16px 12px;
+    flex: 1;
+  }
 
-.login-btn:hover {
-  background: var(--accent-hover);
-}
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text-secondary);
+    font-size: .88rem;
+    font-weight: 400;
+    border: 1px solid transparent;
+    user-select: none;
+  }
 
-.login-error {
-  margin-top: 12px;
-  font-size: .78rem;
-  color: var(--error);
-  min-height: 1.2em;
-}
+  .nav-item:hover {
+    background: rgba(255,255,255,.04);
+    color: var(--text-primary);
+  }
 
-/* hidden */
-.hidden { display: none !important; }
-</style>
+  .nav-item.active {
+    background: rgba(255,255,255,.06);
+    color: var(--text-primary);
+    border-color: rgba(255,255,255,.10);
+    font-weight: 500;
+  }
+
+  .nav-item svg {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .token-status {
+    font-size: .72rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .token-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--resolved);
+    box-shadow: 0 0 6px var(--resolved);
+  }
+
+  .btn-token {
+    margin-top: 8px;
+    width: 100%;
+    padding: 7px;
+    font-size: .75rem;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+
+  .btn-token:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+  }
+
+  /* ===== Main ===== */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--bg-deep);
+    position: relative;
+  }
+
+  .page-header {
+    padding: 32px 40px 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .page-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
+  }
+
+  .page-header p {
+    color: var(--text-muted);
+    font-size: .82rem;
+    margin-top: 4px;
+  }
+
+  .page-content {
+    padding: 24px 40px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== Feedback ===== */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: .8rem;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+  }
+
+  .filter-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+  .filter-btn.active {
+    background: var(--text-primary);
+    border-color: var(--text-primary);
+    color: var(--bg-deep);
+    box-shadow: none;
+  }
+
+  .feedback-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .feedback-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    transition: all var(--transition);
+    animation: fadeUp .3s ease-out both;
+  }
+
+  .feedback-card:hover {
+    border-color: rgba(255,255,255,.12);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+  }
+
+  .feedback-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .feedback-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .75rem;
+    color: var(--text-muted);
+    background: var(--bg-input);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+
+  .tag {
+    font-size: .7rem;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-weight: 500;
+    letter-spacing: .3px;
+  }
+
+  .tag-error { color: var(--error); background: var(--error-bg); }
+  .tag-suggestion { color: var(--suggestion); background: var(--suggestion-bg); }
+  .tag-other { color: var(--other); background: var(--other-bg); }
+  .tag-pending { color: var(--pending); background: var(--pending-bg); }
+  .tag-resolved { color: var(--resolved); background: var(--resolved-bg); }
+  .tag-dismissed { color: var(--dismissed); background: var(--dismissed-bg); }
+
+  .feedback-title {
+    font-weight: 500;
+    font-size: .92rem;
+    color: var(--text-primary);
+    margin-right: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+  }
+
+  .feedback-time {
+    font-size: .72rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .feedback-body {
+    color: var(--text-secondary);
+    font-size: .85rem;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .feedback-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .action-btn {
+    padding: 5px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: .76rem;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+  }
+
+  .action-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+  }
+
+  .action-btn.btn-resolve:hover {
+    border-color: var(--resolved);
+    color: var(--resolved);
+  }
+
+  .action-btn.btn-dismiss:hover {
+    border-color: var(--dismissed);
+    color: var(--dismissed);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .4; }
+  .empty-state p { font-size: .88rem; }
+
+  /* ===== Config ===== */
+  .config-section {
+    margin-bottom: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+
+  .config-section-title {
+    font-size: .78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .config-label {
+    font-size: .78rem;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .config-label .sensitive-badge {
+    font-size: .6rem;
+    background: var(--error-bg);
+    color: var(--error);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: .5px;
+  }
+
+  .config-input {
+    width: 100%;
+    padding: 9px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .82rem;
+    transition: all var(--transition);
+    outline: none;
+  }
+
+  .config-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.06);
+  }
+
+  .config-input.sensitive {
+    color: var(--text-muted);
+  }
+
+  .config-input.sensitive::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .config-footer {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .btn-save {
+    padding: 10px 28px;
+    background: var(--text-primary);
+    color: var(--bg-deep);
+    border: 1px solid var(--text-primary);
+    border-radius: var(--radius);
+    font-size: .88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+  }
+
+  .btn-save:hover {
+    background: transparent;
+    color: var(--text-primary);
+    box-shadow: none;
+    transform: translateY(-1px);
+  }
+
+  .btn-save:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .save-hint {
+    font-size: .75rem;
+    color: var(--text-muted);
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 12px 20px;
+    border-radius: var(--radius);
+    font-size: .84rem;
+    z-index: 1000;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .35s cubic-bezier(.4,0,.2,1);
+    pointer-events: none;
+    max-width: 400px;
+  }
+
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  .toast.success {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--resolved);
+  }
+
+  .toast.error {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--error);
+  }
+
+  .toast.info {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+
+  /* ===== Loading ===== */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--text-primary);
+    border-radius: 50%;
+    animation: spin .6s linear infinite;
+    margin: 40px auto;
+  }
+
+  /* ===== Animations ===== */
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== Responsive ===== */
+  @media (max-width: 768px) {
+    body { flex-direction: column; overflow-y: auto; }
+    .sidebar {
+      width: 100%;
+      min-height: auto;
+      flex-direction: row;
+      align-items: center;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+    }
+    .sidebar-brand { padding: 12px 16px; border-bottom: none; }
+    .sidebar-brand h1 { font-size: .95rem; }
+    .sidebar-brand p { display: none; }
+    .sidebar-nav { padding: 8px; display: flex; gap: 4px; }
+    .sidebar-footer { display: none; }
+    .page-header { padding: 20px 16px 0; }
+    .page-content { padding: 16px; }
+    .config-grid { grid-template-columns: 1fr; }
+    .feedback-title { max-width: 140px; }
+  }
+
+  /* ===== Login Overlay ===== */
+  .login-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-deep);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .login-box {
+    width: 360px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 40px 32px;
+    text-align: center;
+  }
+
+  .login-box h2 {
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+  }
+
+  .login-box p {
+    color: var(--text-muted);
+    font-size: .82rem;
+    margin-bottom: 24px;
+  }
+
+  .login-input {
+    width: 100%;
+    padding: 11px 14px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: .88rem;
+    outline: none;
+    transition: all var(--transition);
+    text-align: center;
+    letter-spacing: 2px;
+  }
+
+  .login-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(255,255,255,.06);
+  }
+
+  .login-btn {
+    margin-top: 16px;
+    width: 100%;
+    padding: 11px;
+    background: var(--text-primary);
+    color: var(--bg-deep);
+    border: 1px solid var(--text-primary);
+    border-radius: var(--radius);
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    font-family: inherit;
+  }
+
+  .login-btn:hover {
+    background: transparent;
+    color: var(--text-primary);
+  }
+
+  .login-error {
+    margin-top: 12px;
+    font-size: .78rem;
+    color: var(--error);
+    min-height: 1.2em;
+  }
+
+  /* hidden */
+  .hidden { display: none !important; }
+  </style>
 </head>
 <body>
 
@@ -655,13 +639,25 @@ body {
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       反馈管理
     </div>
-    <div class="nav-item" data-tab="config" onclick="switchTab('config')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      环境配置
+    <div class="nav-item" data-tab="model" onclick="switchTab('model')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      模型配置
+    </div>
+    <div class="nav-item" data-tab="sync-data" onclick="switchTab('sync-data')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+      数据同步
     </div>
     <div class="nav-item" data-tab="sync" onclick="switchTab('sync')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 6.5m0 0l3 3-3 3m-3-6l-3 3 3 3"/></svg>
       自动同步
+    </div>
+    <div class="nav-item" data-tab="notify" onclick="switchTab('notify')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a1.94 1.94 0 0 1-3.46 0"/></svg>
+      自动通知
+    </div>
+    <div class="nav-item" data-tab="security" onclick="switchTab('security')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      安全设置
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -693,13 +689,46 @@ body {
     </div>
   </div>
 
-  <!-- Config Tab -->
-  <div id="tab-config" class="hidden">
+  <!-- Model Config Tab -->
+  <div id="tab-model" class="hidden">
     <div class="page-header">
-      <h2>环境配置</h2>
-      <p>查看和修改博客运行时配置</p>
+      <h2>模型配置</h2>
+      <p>LLM、Embedding、Reranker 及超时设置</p>
     </div>
-    <div class="page-content" id="configContent">
+    <div class="page-content" id="modelContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Data Sync Tab -->
+  <div id="tab-sync-data" class="hidden">
+    <div class="page-header">
+      <h2>数据同步</h2>
+      <p>数据目录与远程同步源配置</p>
+    </div>
+    <div class="page-content" id="syncDataContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Notify Tab -->
+  <div id="tab-notify" class="hidden">
+    <div class="page-header">
+      <h2>自动通知</h2>
+      <p>邮件通知与告警配置</p>
+    </div>
+    <div class="page-content" id="notifyContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Security Tab -->
+  <div id="tab-security" class="hidden">
+    <div class="page-header">
+      <h2>安全设置</h2>
+      <p>Token 与 CORS 安全配置</p>
+    </div>
+    <div class="page-content" id="securityContent">
       <div class="spinner"></div>
     </div>
   </div>
@@ -779,10 +808,16 @@ async function handleLogin() {
 function switchTab(tab) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.tab === tab));
   document.getElementById('tab-feedback').classList.toggle('hidden', tab !== 'feedback');
-  document.getElementById('tab-config').classList.toggle('hidden', tab !== 'config');
+  document.getElementById('tab-model').classList.toggle('hidden', tab !== 'model');
+  document.getElementById('tab-sync-data').classList.toggle('hidden', tab !== 'sync-data');
+  document.getElementById('tab-notify').classList.toggle('hidden', tab !== 'notify');
+  document.getElementById('tab-security').classList.toggle('hidden', tab !== 'security');
   document.getElementById('tab-sync').classList.toggle('hidden', tab !== 'sync');
   if (tab === 'feedback') loadFeedback();
-  if (tab === 'config') loadConfig();
+  if (tab === 'model') loadTabConfig('model', 'modelContent');
+  if (tab === 'sync-data') loadTabConfig('sync-data', 'syncDataContent');
+  if (tab === 'notify') loadTabConfig('notify', 'notifyContent');
+  if (tab === 'security') loadTabConfig('security', 'securityContent');
   if (tab === 'sync') loadSync();
 }
 
@@ -865,9 +900,66 @@ function statusLabel(s) {
   return { pending: '待处理', resolved: '已处理', dismissed: '已忽略' }[s] || s;
 }
 
-// ===== Config =====
-async function loadConfig() {
-  const content = document.getElementById('configContent');
+// ===== Config Tabs =====
+const tabMap = {
+  llm_base_url: 'model', llm_api_key: 'model', llm_model: 'model',
+  embedding_provider: 'model', embedding_api_key: 'model',
+  embedding_model: 'model', embedding_dimensions: 'model', embedding_text_type: 'model',
+  rerank_provider: 'model', rerank_api_key: 'model',
+  rerank_model: 'model', rerank_top_n: 'model',
+  rerank_enabled: 'model', rerank_instruct: 'model',
+  llm_timeout_seconds: 'model', embedding_timeout_seconds: 'model',
+  rerank_timeout_seconds: 'model', http_max_retries: 'model',
+  http_retry_backoff_seconds: 'model', embedding_batch_size: 'model',
+  similarity_top_k: 'model', llm_mock: 'model',
+
+  chroma_dir: 'sync-data', notes_dir: 'sync-data', docstore_path: 'sync-data',
+  db_path: 'sync-data', chroma_collection: 'sync-data', notes_assets_folders: 'sync-data',
+  cos_secret_id: 'sync-data', cos_secret_key: 'sync-data',
+  cos_region: 'sync-data', cos_endpoint: 'sync-data',
+  cos_bucket: 'sync-data', notes_cos_prefix: 'sync-data',
+  github_repo_url: 'sync-data', github_branch: 'sync-data',
+  notes_github_prefix: 'sync-data', github_token: 'sync-data',
+
+  notify_enabled: 'notify', notify_interval_seconds: 'notify',
+  notify_email: 'notify', mail_server: 'notify',
+  mail_port: 'notify', mail_username: 'notify',
+  mail_password: 'notify',
+
+  reindex_token: 'security', admin_token: 'security',
+  allowed_origins: 'security',
+};
+
+const groupMap = {
+  llm_base_url: 'LLM 模型', llm_api_key: 'LLM 模型', llm_model: 'LLM 模型',
+  embedding_provider: 'Embedding 向量', embedding_api_key: 'Embedding 向量',
+  embedding_model: 'Embedding 向量', embedding_dimensions: 'Embedding 向量', embedding_text_type: 'Embedding 向量',
+  rerank_provider: 'Reranker 重排序', rerank_api_key: 'Reranker 重排序',
+  rerank_model: 'Reranker 重排序', rerank_top_n: 'Reranker 重排序',
+  rerank_enabled: 'Reranker 重排序', rerank_instruct: 'Reranker 重排序',
+  chroma_dir: '数据目录', notes_dir: '数据目录', docstore_path: '数据目录',
+  db_path: '数据目录', chroma_collection: '数据目录', notes_assets_folders: '数据目录',
+  similarity_top_k: '检索参数', llm_mock: '检索参数',
+  llm_timeout_seconds: '超时与重试', embedding_timeout_seconds: '超时与重试',
+  rerank_timeout_seconds: '超时与重试', http_max_retries: '超时与重试',
+  http_retry_backoff_seconds: '超时与重试', embedding_batch_size: '超时与重试',
+  reindex_token: '安全 Token', admin_token: '安全 Token',
+  allowed_origins: 'CORS',
+  cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
+  cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
+  cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
+  github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
+  notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
+  notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
+  notify_email: '邮件通知', mail_server: '邮件通知',
+  mail_port: '邮件通知', mail_username: '邮件通知',
+  mail_password: '邮件通知',
+};
+
+const syncOnlyKeys = new Set(['remote_type', 'auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
+
+async function loadTabConfig(tab, containerId) {
+  const content = document.getElementById(containerId);
   content.innerHTML = '<div class="spinner"></div>';
 
   try {
@@ -876,56 +968,28 @@ async function loadConfig() {
     });
     if (!res.ok) throw new Error(`${res.status}`);
     configData = await res.json();
-    renderConfig(configData);
+    renderTab(tab, containerId, configData);
   } catch (e) {
     content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
   }
 }
 
-function groupConfig(items) {
+function renderTab(tab, containerId, items) {
+  const content = document.getElementById(containerId);
   const groups = {};
-  const groupMap = {
-    llm_base_url: 'LLM 模型', llm_api_key: 'LLM 模型', llm_model: 'LLM 模型',
-    embedding_provider: 'Embedding 向量', embedding_api_key: 'Embedding 向量',
-    embedding_model: 'Embedding 向量', embedding_dimensions: 'Embedding 向量', embedding_text_type: 'Embedding 向量',
-    rerank_provider: 'Reranker 重排序', rerank_api_key: 'Reranker 重排序',
-    rerank_model: 'Reranker 重排序', rerank_top_n: 'Reranker 重排序',
-    rerank_enabled: 'Reranker 重排序', rerank_instruct: 'Reranker 重排序',
-    chroma_dir: '数据目录', notes_dir: '数据目录', docstore_path: '数据目录',
-    db_path: '数据目录', chroma_collection: '数据目录', notes_assets_folders: '数据目录',
-    similarity_top_k: '检索参数', llm_mock: '检索参数',
-    llm_timeout_seconds: '超时与重试', embedding_timeout_seconds: '超时与重试',
-    rerank_timeout_seconds: '超时与重试', http_max_retries: '超时与重试',
-    http_retry_backoff_seconds: '超时与重试', embedding_batch_size: '超时与重试',
-    reindex_token: '安全 Token', admin_token: '安全 Token',
-    allowed_origins: 'CORS',
-    remote_type: '远程同步',
-    cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
-    cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
-    cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
-    github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
-    notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
-    git_proxy: '网络代理', git_accelerator: '网络代理',
-    notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
-    notify_email: '邮件通知', mail_server: '邮件通知',
-    mail_port: '邮件通知', mail_username: '邮件通知',
-    mail_password: '邮件通知',
-  };
-  // 这些字段在同步标签页管理，不显示在环境配置中
-  const syncOnlyKeys = new Set(['remote_type', 'auto_sync_enabled', 'webhook_secret', 'debounce_seconds', 'sync_interval_seconds', 'git_proxy', 'git_accelerator']);
 
   items.forEach(item => {
     if (syncOnlyKeys.has(item.key)) return;
+    if (tabMap[item.key] !== tab) return;
     const group = groupMap[item.key] || '其他';
     if (!groups[group]) groups[group] = [];
     groups[group].push(item);
   });
-  return groups;
-}
 
-function renderConfig(items) {
-  const content = document.getElementById('configContent');
-  const groups = groupConfig(items);
+  if (!Object.keys(groups).length) {
+    content.innerHTML = `<div class="empty-state"><p>暂无配置项</p></div>`;
+    return;
+  }
 
   let html = '';
   for (const [name, fields] of Object.entries(groups)) {
@@ -937,17 +1001,7 @@ function renderConfig(items) {
       const inputType = f.type === 'bool' ? 'checkbox' : 'text';
       const value = f.type === 'bool' ? (f.value === true || f.value === 'True' || f.value === 'true') : f.value;
 
-      // remote_type 使用下拉选择器
-      if (f.key === 'remote_type') {
-        html += `<div class="config-item">
-          <label class="config-label">${esc(f.key)}</label>
-          <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
-            <option value="cos" ${value === 'cos' ? 'selected' : ''}>COS（腾讯云对象存储）</option>
-            <option value="github" ${value === 'github' ? 'selected' : ''}>GitHub（代码仓库）</option>
-          </select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">切换后即时生效</div>
-        </div>`;
-      } else if (f.key === 'embedding_provider') {
+      if (f.key === 'embedding_provider') {
         html += `<div class="config-item">
           <label class="config-label">${esc(f.key)}</label>
           <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
@@ -977,6 +1031,7 @@ function renderConfig(items) {
           <label class="config-label">${esc(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
           <input class="config-input${isSensitive ? ' sensitive' : ''}" type="text"
             data-key="${esc(f.key)}" data-sensitive="${isSensitive}"
+            data-original="${isSensitive ? esc(String(value)) : ''}"
             value="${esc(String(value))}"
             placeholder="${isSensitive ? '输入新值覆盖' : ''}"
             ${isSensitive ? 'onfocus="this.select()"' : ''}>
@@ -987,38 +1042,37 @@ function renderConfig(items) {
   }
 
   html += `<div class="config-footer">
-    <button class="btn-save" id="configSaveBtn" onclick="saveConfig()">保存配置</button>
+    <button class="btn-save" id="save-${containerId}" onclick="saveTabConfig('${containerId}')">保存配置</button>
     <span class="save-hint">修改后即时生效</span>
   </div>`;
 
   content.innerHTML = html;
 }
 
-async function saveConfig() {
-  const btn = document.getElementById('configSaveBtn');
+async function saveTabConfig(containerId) {
+  const btn = document.getElementById(`save-${containerId}`);
   btn.disabled = true;
   btn.textContent = '保存中...';
 
+  const container = document.getElementById(containerId);
   const updates = {};
-  // 处理文本输入框
-  document.querySelectorAll('.config-input[type="text"]').forEach(input => {
+
+  container.querySelectorAll('.config-input[type="text"]').forEach(input => {
     const key = input.dataset.key;
     const isSensitive = input.dataset.sensitive === 'true';
-    // 敏感字段未修改（值仍为 ****）则跳过
-    if (isSensitive && input.value === '****') return;
+    if (isSensitive && input.value === input.dataset.original) return;
     if (input.value !== input.defaultValue) {
       updates[key] = input.value;
     }
   });
-  // 处理下拉选择框
-  document.querySelectorAll('.config-input').forEach(el => {
+
+  container.querySelectorAll('.config-input').forEach(el => {
     if (el.tagName === 'SELECT') {
-      const key = el.dataset.key;
-      updates[key] = el.value;
+      updates[el.dataset.key] = el.value;
     }
   });
-  // 处理复选框
-  document.querySelectorAll('.config-item input[type="checkbox"]').forEach(cb => {
+
+  container.querySelectorAll('.config-item input[type="checkbox"]').forEach(cb => {
     updates[cb.dataset.key] = cb.checked ? 'true' : 'false';
   });
 
@@ -1038,7 +1092,6 @@ async function saveConfig() {
     if (!res.ok) throw new Error(`${res.status}`);
     const result = await res.json();
     showToast(result.message || '配置已更新，即时生效', 'success');
-    loadConfig();
   } catch (e) {
     showToast('保存失败：' + e.message, 'error');
   }
@@ -1073,16 +1126,26 @@ async function loadSync() {
   syncPollTimer = setInterval(pollSyncStatus, 5000);
 }
 
-// 状态推导：优先级 syncing > building > pending > idle；失败态由 last_sync_status 体现
+// 状态推导：优先 同步中/构建中 → 手动待同步（manual_trigger，等用户点按钮）→ 10秒内最近结果 → 空闲
 function deriveSyncState(status) {
   // 当前进行中的状态
-  if (status.syncing && status.building) return { label: '构建中', cls: 'tag-suggestion' };
+  if (status.syncing && status.building) return { label: '构建中', cls: 'tag-pending' };
   if (status.syncing) return { label: '同步中', cls: 'tag-pending' };
-  if (status.pending) return { label: '待同步', cls: 'tag-suggestion' };
-  // 空闲时显示上次结果：成功=同步完成，失败=同步失败，无记录=空闲
+
+  // 手动待同步：已接收 webhook 但 syncer 不会自动拾取，等待用户点按钮触发
+  if (status.manual_trigger && status.pending) return { label: '待同步（手动）', cls: 'tag-suggestion' };
+
+  // 最近完成结果仅展示 10 秒，之后回落空闲；上次状态由独立的 lastSyncStatus 标签永久记录
   const last = status.last_sync_status || '';
-  if (last === 'success') return { label: '同步完成', cls: 'tag-resolved' };
-  if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') return { label: '同步失败', cls: 'tag-error' };
+  const lastTime = status.last_sync_at;
+  if (last && lastTime && !status.pending) {
+    const elapsed = Date.now() - new Date(lastTime).getTime();
+    if (elapsed < 10000) {
+      if (last === 'success') return { label: '同步完成', cls: 'tag-resolved' };
+      if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') return { label: '同步失败', cls: 'tag-error' };
+    }
+  }
+
   return { label: '空闲', cls: 'tag-resolved' };
 }
 
@@ -1184,6 +1247,7 @@ function renderSync(status, config) {
     configHtml += `<div class="config-item">
       <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
       <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+        data-original="${sensitive ? esc(String(val)) : ''}"
         value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
     </div>`;
   });
@@ -1212,6 +1276,7 @@ function renderSync(status, config) {
       notifyHtml += `<div class="config-item">
         <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}</label>
         <input class="config-input${sensitive ? ' sensitive' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
+          data-original="${sensitive ? esc(String(val)) : ''}"
           value="${esc(String(val))}" placeholder="${sensitive ? '输入新值覆盖' : ''}">
       </div>`;
     }
@@ -1249,7 +1314,7 @@ function renderSync(status, config) {
         <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
           ${status.syncing ? (status.building ? '构建中...' : '同步中...') : '手动触发同步'}
         </button>
-        <span class="save-hint">流程：待同步 → 同步中（远程拉取）→ 构建中（索引+Quartz）→ 同步完成/失败 → 空闲</span>
+        <span class="save-hint">流程：同步中（远程拉取）→ 构建中（索引+Quartz）→ 完成状态停留10秒 → 空闲；上次状态永久记录在「上次状态」标签</span>
       </div>
     </div>
 
@@ -1322,11 +1387,14 @@ async function saveSyncConfig() {
     if (el.disabled) return; // 非当前模式禁用的字段不提交
     if (el.type === 'checkbox') {
       updates[el.dataset.key] = el.checked ? 'true' : 'false';
-    } else if (el.dataset.sensitive === 'true' && !el.value.trim()) {
-      // 空敏感字段不覆盖
-    } else {
-      updates[el.dataset.key] = el.value;
+      return;
     }
+    if (el.dataset.sensitive === 'true') {
+      // 敏感字段：空值不覆盖；值等于原始脱敏值不覆盖
+      if (!el.value.trim()) return;
+      if (el.dataset.original && el.value === el.dataset.original) return;
+    }
+    updates[el.dataset.key] = el.value;
   });
   try {
     const res = await fetch(`${API_BASE}/config`, {

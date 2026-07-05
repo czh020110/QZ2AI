@@ -52,6 +52,7 @@ class SyncStatusResponse(BaseModel):
     pending: bool = False
     syncing: bool = False
     building: bool = False
+    manual_trigger: bool = False
     debounce_until: float = 0
     triggered_at: str = ""
     event_count: int = 0

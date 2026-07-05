@@ -7,19 +7,14 @@
 !.env.example
 
 # 运行时数据：与代码分离，单独挂载
-data/notes/*
+/data/notes/
 data/chroma/*
 data/logs/*
 data/docstore.json
 data/blog.db
 data/sync-pending.json
-!data/notes/.gitkeep
 !data/chroma/.gitkeep
 !data/logs/.gitkeep
-# 开发期示例笔记保留入仓，供 Quartz/索引开发
-!data/notes/examples/
-# 首页落地页（开发期示例首页，供 / 路由有内容）
-!data/notes/index.md
 
 # Python
 apps/api/__pycache__/
@@ -36,3 +31,6 @@ apps/web/.quartz-cache/
 # 杂项
 *.log
 .DS_Store
+
+# Quartz 上游 vendor 模板配置，非实际使用的配置
+apps/web/_vendor_quartz/quartz.config.yaml

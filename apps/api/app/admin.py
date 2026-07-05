@@ -10,9 +10,10 @@ from fastapi import APIRouter, Header, HTTPException, status
 
 from pydantic import BaseModel
 
-from .config import get_settings
+from .sync_state import read_sync_state, write_sync_state
 from .database import get_connection
 from .models import SyncStatusResponse, WebhookResponse
+from .config import get_settings
 import logging
 
 logger = logging.getLogger("admin")
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/admin/api", tags=["admin"])
 
 
 class FeedbackStatusUpdate(BaseModel):
-    new_status: Literal["resolved", "dismissed"]
+    new_status: Literal["pending", "resolved", "dismissed"]
 
 
 def _verify_admin(x_admin_token: str | None) -> None:
@@ -99,10 +100,11 @@ def get_config(
     for field_name, field_info in s.model_fields.items():
         value = getattr(s, field_name, "")
         is_sensitive = field_name in sensitive
+        display_value = _partial_mask(str(value)) if is_sensitive else value
         result.append(
             {
                 "key": field_name,
-                "value": "****" if is_sensitive else value,
+                "value": display_value,
                 "sensitive": is_sensitive,
                 "type": _field_type_name(field_info),
             }
@@ -141,8 +143,8 @@ def update_config(
         if key not in s.model_fields:
             continue
         is_sensitive = key in sensitive
-        # 敏感字段：**** 表示不修改，只有非 **** 值才覆盖
-        if is_sensitive and new_value == "****":
+        # 敏感字段：含 **** 表示未修改（部分脱敏值或全星号），跳过覆盖
+        if is_sensitive and "****" in new_value:
             continue
         existing[key.upper()] = new_value
         updated_keys.append(key)
@@ -212,56 +214,40 @@ def _field_type_name(field_info: Any) -> str:
     return "string"
 
 
+def _partial_mask(value: str) -> str:
+    """部分脱敏：保留前6后4字符，中间用 **** 替代；短值按比例保留"""
+    if not value:
+        return ""
+    if len(value) <= 4:
+        return "****"
+    if len(value) <= 8:
+        return value[:2] + "****" + value[-2:]
+    if len(value) <= 12:
+        return value[:3] + "****" + value[-3:]
+    return value[:6] + "****" + value[-4:]
+
+
 # ============================ 自动同步 ============================ #
 
-SYNC_PENDING_PATH = "/data/sync-pending.json"
 
-
-def _read_sync_state() -> dict[str, Any]:
-    """读取同步状态文件，不存在则返回默认值"""
-    try:
-        with open(SYNC_PENDING_PATH) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {
-            "pending": False,
-            "syncing": False,
-            "building": False,
-            "debounce_until": 0,
-            "triggered_at": "",
-            "event_count": 0,
-            "last_sync_at": "",
-            "last_sync_status": "",
-        }
-
-
-def _write_sync_state(state: dict[str, Any]) -> None:
-    """加文件锁写入同步状态"""
-    with open(SYNC_PENDING_PATH, "a+") as f:
-        f.seek(0)
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            f.truncate()
-            json.dump(state, f, ensure_ascii=False)
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
-
-
-def _trigger_sync_pending(s) -> WebhookResponse:
+def _trigger_sync_pending(s, skip_auto: bool = False) -> WebhookResponse:
     """置 pending=true 并设置防抖窗口，返回接收回执。
 
     webhook 入口（COS/GitHub）鉴权通过后都走这里，确保 pending 状态写入格式一致。
+    skip_auto=True 时标记为手动模式触发（来自 webhook/sync）：syncer 不会自动拾取，
+    UI 显示"待同步"提示用户点按钮触发，避免手动模式下 webhook 被直接丢弃。
     """
-    state = _read_sync_state()
+    state = read_sync_state()
     state["pending"] = True
     state["syncing"] = False
     state["building"] = False
-    state["debounce_until"] = time.time() + s.debounce_seconds
+    state["manual_trigger"] = skip_auto and not s.auto_sync_enabled
+    state["debounce_until"] = 0 if skip_auto else time.time() + s.debounce_seconds
     state["triggered_at"] = datetime.now().isoformat()
     state["event_count"] = state.get("event_count", 0) + 1
-    _write_sync_state(state)
-    return WebhookResponse(status="accepted", message="同步任务已接收，等待防抖窗口结束后执行")
+    write_sync_state(state)
+    msg = "同步任务已接收，等待防抖窗口结束后执行" if not skip_auto else "同步任务已接收，等待手动触发"
+    return WebhookResponse(status="accepted", message=msg)
 
 
 def verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secret: str | None = None) -> None:
@@ -269,9 +255,9 @@ def verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secr
     _verify_webhook(x_webhook_secret, x_admin_token, secret)
 
 
-def trigger_sync_pending(s) -> WebhookResponse:
+def trigger_sync_pending(s, skip_auto: bool = False) -> WebhookResponse:
     """对外暴露的 pending 触发入口，供 main 的通用 webhook 路由复用。"""
-    return _trigger_sync_pending(s)
+    return _trigger_sync_pending(s, skip_auto=skip_auto)
 
 
 def _verify_webhook(x_webhook_secret: str | None, x_admin_token: str | None, secret: str | None = None) -> None:
@@ -321,7 +307,7 @@ def get_sync_status(
     x_admin_token: str | None = Header(default=None),
 ) -> SyncStatusResponse:
     _verify_admin(x_admin_token)
-    state = _read_sync_state()
+    state = read_sync_state()
     return SyncStatusResponse(**state)
 
 
@@ -332,13 +318,13 @@ def update_sync_status(
 ) -> SyncStatusResponse:
     """合并更新同步状态（syncer 守护进程和管理后台使用）"""
     _verify_admin(x_admin_token)
-    state = _read_sync_state()
+    state = read_sync_state()
     if body:
-        for key in ("pending", "syncing", "building", "debounce_until", "triggered_at",
+        for key in ("pending", "syncing", "building", "manual_trigger", "debounce_until", "triggered_at",
                      "event_count", "last_sync_at", "last_sync_status"):
             if key in body:
                 state[key] = body[key]
-    _write_sync_state(state)
+    write_sync_state(state)
     return SyncStatusResponse(**state)
 
 

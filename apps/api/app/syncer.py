@@ -4,14 +4,13 @@ import os
 import subprocess
 import threading
 import time
-from datetime import datetime
-from pathlib import Path
+from datetime import datetime, timezone
 
 from .config import get_settings
+from .sync_state import read_sync_state, write_sync_state
 
 logger = logging.getLogger("syncer")
 
-SYNC_PENDING_PATH = Path("/data/sync-pending.json")
 POLL_INTERVAL = 10
 
 
@@ -71,30 +70,6 @@ def _resolve_host_data_dir() -> str:
     except Exception as e:
         logger.warning("探测宿主机 data 路径失败: %s", e)
     return ""
-
-
-def _read_state() -> dict:
-    try:
-        return json.loads(SYNC_PENDING_PATH.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {
-            "pending": False, "syncing": False, "building": False, "debounce_until": 0,
-            "triggered_at": "", "event_count": 0,
-            "last_sync_at": "", "last_sync_status": "",
-        }
-
-
-def _write_state(state: dict) -> None:
-    import fcntl
-    with open(SYNC_PENDING_PATH, "a+") as f:
-        f.seek(0)
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            f.seek(0)
-            f.truncate()
-            json.dump(state, f, ensure_ascii=False)
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def _coscli_sync(settings) -> tuple[bool, bool]:
@@ -385,28 +360,33 @@ def _trigger_web_rebuild() -> bool:
         return False
 
 
-def _syncer_loop() -> None:
+def startup_recovery() -> None:
+    """syncer 线程启动时恢复卡死状态：同步中断则重置为待同步"""
+    state = read_sync_state()
+    if state.get("syncing"):
+        logger.warning("检测到卡死状态（syncing=true），重置为待同步")
+        state["syncing"] = False
+        state["building"] = False
+        state["pending"] = True
+        state["manual_trigger"] = False
+        state["debounce_until"] = 0
+        state["syncing_started_at"] = 0
+        write_sync_state(state)
+
+
+def _syncing_loop() -> None:
     """syncer 后台线程主循环"""
     logger.info("syncer 线程启动，轮询间隔: %ds", POLL_INTERVAL)
-
-    # 启动时恢复卡死的状态：如果 syncing=true 但进程已重启，说明上次同步中断，重置
-    startup_state = _read_state()
-    if startup_state.get("syncing"):
-        logger.warning("检测到卡死状态（syncing=true），重置为待同步")
-        startup_state["syncing"] = False
-        startup_state["building"] = False
-        startup_state["pending"] = True
-        startup_state["debounce_until"] = 0
-        startup_state["syncing_started_at"] = 0
-        _write_state(startup_state)
+    startup_recovery()
 
     while True:
         settings = get_settings()
         try:
-            state = _read_state()
+            state = read_sync_state()
             pending = state.get("pending", False)
             syncing = state.get("syncing", False)
             debounce_until = state.get("debounce_until", 0)
+            manual_trigger = state.get("manual_trigger", False)
 
             # 定时同步：需同时满足 auto_sync_enabled 开启 且 interval > 0
             if settings.auto_sync_enabled:
@@ -414,17 +394,21 @@ def _syncer_loop() -> None:
                 if interval > 0 and not pending and not syncing:
                     last_sync_at = state.get("last_sync_at", "")
                     if last_sync_at:
-                        from datetime import timezone
                         last_dt = datetime.fromisoformat(last_sync_at)
-                        elapsed = (datetime.now() - last_dt).total_seconds()
+                        elapsed = (datetime.now(timezone.utc) - last_dt).total_seconds()
                     else:
                         elapsed = interval  # 从未同步过，立即触发
                     if elapsed >= interval:
                         logger.info("定时同步触发，距上次同步 %.0fs", elapsed)
                         state["pending"] = True
                         state["debounce_until"] = 0
-                        _write_state(state)
+                        write_sync_state(state)  # 定时同步触发
                         pending = True
+
+            # 手动模式标记的 pending 不自动拾取：保留状态等用户在后台点按钮触发
+            if manual_trigger:
+                time.sleep(POLL_INTERVAL)
+                continue
 
             if not pending or syncing or time.time() < debounce_until:
                 # 安全网：同步状态卡死超过 10 分钟自动重置
@@ -436,7 +420,7 @@ def _syncer_loop() -> None:
                         state["building"] = False
                         state["syncing_started_at"] = 0
                         syncing = False
-                        _write_state(state)
+                        write_sync_state(state)
                 if not pending or syncing or time.time() < debounce_until:
                     time.sleep(POLL_INTERVAL)
                     continue
@@ -445,7 +429,7 @@ def _syncer_loop() -> None:
             state["syncing"] = True
             state["building"] = False
             state["syncing_started_at"] = time.time()
-            _write_state(state)
+            write_sync_state(state)
 
             sync_status = "success"
 
@@ -459,7 +443,7 @@ def _syncer_loop() -> None:
             else:
                 # 2. 索引重建
                 state["building"] = True
-                _write_state(state)
+                write_sync_state(state)
                 if not _trigger_reindex():
                     if sync_status == "success":
                         sync_status = "reindex_failed"
@@ -470,14 +454,15 @@ def _syncer_loop() -> None:
                         sync_status = "build_failed"
 
             # 4. 清除 pending 与 building
-            state = _read_state()
+            state = read_sync_state()
             state["pending"] = False
             state["syncing"] = False
             state["building"] = False
+            state["manual_trigger"] = False
             state["syncing_started_at"] = 0
-            state["last_sync_at"] = datetime.now().isoformat()
+            state["last_sync_at"] = datetime.now(timezone.utc).isoformat()
             state["last_sync_status"] = sync_status
-            _write_state(state)
+            write_sync_state(state)
 
             logger.info("同步流程结束: %s", sync_status)
         except Exception as e:
@@ -488,5 +473,5 @@ def _syncer_loop() -> None:
 
 def start_syncer_thread() -> None:
     """启动 syncer 后台线程（由 FastAPI startup 事件调用）"""
-    t = threading.Thread(target=_syncer_loop, name="syncer", daemon=True)
+    t = threading.Thread(target=_syncing_loop, name="syncer", daemon=True)
     t.start()
