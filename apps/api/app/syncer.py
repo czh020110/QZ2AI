@@ -360,6 +360,31 @@ def _trigger_web_rebuild() -> bool:
         return False
 
 
+def trigger_rebuild_only() -> None:
+    """仅触发 Quartz 重建(不拉笔记、不 reindex),用于博客语言切换等无需同步笔记的场景。
+
+    _syncing_loop 在笔记无变更(changed=False)时跳过 rebuild,语言切换需绕过该判断:
+    后台线程直接置 building=true → _trigger_web_rebuild() → building=false。
+    不动 pending/syncing,避免与 _syncing_loop 竞态;若已有同步/重建在执行则跳过。
+    """
+    def _run():
+        state = read_sync_state()
+        if state.get("syncing") or state.get("building"):
+            logger.info("已有同步/重建在执行,跳过语言切换触发的重建")
+            return
+        state["building"] = True
+        write_sync_state(state)
+        try:
+            if not _trigger_web_rebuild():
+                logger.warning("语言切换触发的 Quartz 重建失败")
+        finally:
+            state = read_sync_state()
+            state["building"] = False
+            write_sync_state(state)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def startup_recovery() -> None:
     """syncer 线程启动时恢复卡死状态：同步中断则重置为待同步"""
     state = read_sync_state()

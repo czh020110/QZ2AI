@@ -32,6 +32,7 @@ VALID_SHAPES = {"circle", "square", "rounded"}
 VALID_ICON_TYPES = {"builtin", "custom"}
 VALID_ACTIONS = {"jump", "copy"}  # jump=跳转(邮箱自动 mailto), copy=复制到剪贴板
 VALID_BUILTIN_ICONS = {"github", "email", "twitter", "rss", "weibo", "zhihu", "bilibili", "linkedin"}
+VALID_LOCALES = {"en-US", "zh-CN", "ja-JP"}  # 内置 UI 语言(博客与管理界面),en-US 为默认
 
 # MIME → 扩展名映射(只允许常见图片类型)
 MIME_TO_EXT = {
@@ -55,6 +56,8 @@ DEFAULT_APPEARANCE: dict[str, Any] = {
     "social_links": [],
     "background_presets": [],  # 背景色预设:[{id,name,light,dark}],每个一对深浅色
     "active_background_id": "",  # 当前应用预设 id,空串=不覆盖(用 Quartz 默认背景)
+    "blog_locale": "en-US",      # 博客界面 UI 语言(Quartz 构建期注入,改后需 rebuild)
+    "admin_locale": "en-US",     # 管理界面 UI 语言(前端运行时切换)
 }
 
 # 签名字体跨平台默认:macOS 用系统自带 HanziPen SC 手写体。
@@ -125,6 +128,12 @@ def _valid_hex(s: Any) -> str:
     return v.lower() if HEX_COLOR_RE.match(v) else ""
 
 
+def _valid_locale(s: Any) -> str:
+    """校验 locale,合法返回原值,非法或缺失返回 en-US"""
+    v = str(s or "").strip()
+    return v if v in VALID_LOCALES else "en-US"
+
+
 def _public_view(cfg: dict[str, Any]) -> dict[str, Any]:
     """把存储视图(文件名)转成公开视图(完整 URL),供前端直接使用"""
     links = []
@@ -163,6 +172,8 @@ def _public_view(cfg: dict[str, Any]) -> dict[str, Any]:
         "avatar_link": cfg.get("avatar_link", ""),
         "social_links": links,
         "background": background,
+        "blog_locale": cfg.get("blog_locale", "en-US"),
+        "admin_locale": cfg.get("admin_locale", "en-US"),
     }
 
 
@@ -180,7 +191,24 @@ def get_appearance_admin() -> dict[str, Any]:
     view = _public_view(cfg)
     view["background_presets"] = cfg.get("background_presets", []) or []
     view["active_background_id"] = cfg.get("active_background_id", "") or ""
+    view["admin_locale"] = cfg.get("admin_locale", "en-US")
     return view
+
+
+def has_blog_locale() -> bool:
+    """appearance.json 是否已写入 blog_locale 字段。
+
+    用于区分"首次设置语言":旧配置无此字段时,即使用户选默认 en-US 也需触发 rebuild,
+    让 entrypoint 的 sed 把 config locale 从旧值(zh-CN)覆盖为 en-US,否则博客仍显示旧语言。
+    """
+    p = _appearance_path()
+    if not p.exists():
+        return False
+    try:
+        data = json.loads(p.read_text("utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    return "blog_locale" in data
 
 
 def save_appearance(data: dict[str, Any]) -> dict[str, Any]:
@@ -196,6 +224,8 @@ def save_appearance(data: dict[str, Any]) -> dict[str, Any]:
         "social_links": [],
         "background_presets": [],
         "active_background_id": "",
+        "blog_locale": _valid_locale(data.get("blog_locale", "en-US")),
+        "admin_locale": _valid_locale(data.get("admin_locale", "en-US")),
     }
     for s in (data.get("social_links", []) or [])[:MAX_SOCIAL_LINKS]:
         icon_type = s.get("icon_type", "builtin")

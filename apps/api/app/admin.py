@@ -447,7 +447,16 @@ def update_appearance_config(
 ) -> dict[str, Any]:
     """保存外观配置(校验社交链接数量、shape 枚举等)"""
     _verify_admin(x_admin_token)
+    # blog_locale 变化需触发 Quartz rebuild:locale 是构建期注入,rebuild 才生效。
+    # 笔记无变更时 _syncing_loop 会跳过 rebuild,故走独立的 trigger_rebuild_only。
+    # 首次设置语言(appearance.json 无 blog_locale)也触发:旧配置默认 en-US 与新值相等,
+    # 但博客实际仍是旧 locale(如 zh-CN),需 rebuild 让 entrypoint sed 覆盖 config。
+    first_locale_set = not appearance_mod.has_blog_locale()
+    old_locale = appearance_mod.get_appearance_admin().get("blog_locale", "en-US")
     saved = appearance_mod.save_appearance(body)
+    if first_locale_set or saved.get("blog_locale", "en-US") != old_locale:
+        from .syncer import trigger_rebuild_only
+        trigger_rebuild_only()
     return {"status": "ok", "appearance": saved, "message": "外观配置已生效,刷新博客可见"}
 
 

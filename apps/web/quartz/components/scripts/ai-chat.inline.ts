@@ -6,6 +6,58 @@ type ChatMessage = {
 
 const ROOT_ID = "ai-chat-widget-root"
 
+// AI 聊天浮窗 UI 文案 i18n:按博客界面语言(blog_locale)翻译,与 appearance.inline.ts 共享 localStorage 缓存。
+const AI_CHAT_I18N: Record<string, Record<string, string>> = {
+  "en-US": {
+    "AI 问答": "AI Chat",
+    "基于当前博客内容回答问题，也可直接提交反馈哦": "Answers based on this blog's content. You can also submit feedback.",
+    "关闭": "Close",
+    "输入你的问题…": "Type your question…",
+    "Enter 发送，Shift+Enter 换行": "Enter to send, Shift+Enter for newline",
+    "发送": "Send",
+    "来源": "Sources",
+    "你": "You",
+    "错误": "Error",
+    "请求失败": "Request failed",
+    "服务暂时不可用。": "Service temporarily unavailable.",
+    "暂时无法完成回答，请稍后再试。": "Unable to complete the answer. Please try again later.",
+  },
+  "ja-JP": {
+    "AI 问答": "AIチャット",
+    "基于当前博客内容回答问题，也可直接提交反馈哦": "このブログの内容に基づいて回答。フィードバックも送信できます。",
+    "关闭": "閉じる",
+    "输入你的问题…": "質問を入力…",
+    "Enter 发送，Shift+Enter 换行": "Enter で送信、Shift+Enter で改行",
+    "发送": "送信",
+    "来源": "出典",
+    "你": "あなた",
+    "错误": "エラー",
+    "请求失败": "リクエスト失敗",
+    "服务暂时不可用。": "サービスは一時的に利用できません。",
+    "暂时无法完成回答，请稍后再试。": "回答を完了できません。後でもう一度お試しください。",
+  },
+}
+
+// 取博客界面语言:优先 localStorage 缓存(appearance.inline.ts 写入),无则 en-US。
+function aiChatLocale(): string {
+  try {
+    const cached = localStorage.getItem("blog-appearance-v1")
+    if (cached) {
+      const cfg = JSON.parse(cached)
+      if (cfg && typeof cfg.blog_locale === "string") return cfg.blog_locale
+    }
+  } catch {
+    /* ignore */
+  }
+  return "en-US"
+}
+
+function aiT(zh: string): string {
+  const locale = aiChatLocale()
+  if (locale === "zh-CN") return zh
+  return (AI_CHAT_I18N[locale] || {})[zh] || zh
+}
+
 const escapeHtml = (v: string) =>
   v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 
@@ -202,23 +254,23 @@ function mountAIChatWidget() {
 
   root.innerHTML = `
     <div class="ai-chat-widget" data-state="closed">
-      <button type="button" class="ai-chat-widget__launcher" aria-label="AI 问答">
+      <button type="button" class="ai-chat-widget__launcher" aria-label="${aiT("AI 问答")}">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>
       </button>
       <section class="ai-chat-widget__panel" hidden>
         <header class="ai-chat-widget__header">
           <div>
-            <div class="ai-chat-widget__header-title">AI 问答</div>
-            <div class="ai-chat-widget__header-subtitle">基于当前博客内容回答问题，也可直接提交反馈哦</div>
+            <div class="ai-chat-widget__header-title">${aiT("AI 问答")}</div>
+            <div class="ai-chat-widget__header-subtitle">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>
           </div>
-          <button type="button" class="ai-chat-widget__close" aria-label="关闭">&times;</button>
+          <button type="button" class="ai-chat-widget__close" aria-label="${aiT("关闭")}">&times;</button>
         </header>
         <div class="ai-chat-widget__messages"></div>
         <form class="ai-chat-widget__composer">
-          <textarea class="ai-chat-widget__textarea" placeholder="输入你的问题…" rows="3"></textarea>
+          <textarea class="ai-chat-widget__textarea" placeholder="${aiT("输入你的问题…")}" rows="3"></textarea>
           <div class="ai-chat-widget__footer">
-            <span class="ai-chat-widget__hint">Enter 发送，Shift+Enter 换行</span>
-            <button type="submit" class="ai-chat-widget__send">发送</button>
+            <span class="ai-chat-widget__hint">${aiT("Enter 发送，Shift+Enter 换行")}</span>
+            <button type="submit" class="ai-chat-widget__send">${aiT("发送")}</button>
           </div>
         </form>
       </section>
@@ -245,17 +297,17 @@ function mountAIChatWidget() {
 
   const renderMessages = () => {
     if (messages.length === 0) {
-      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">基于当前博客内容回答问题，也可直接提交反馈哦</div>`
+      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>`
       postRenderKatex(messagesEl)
       return
     }
     messagesEl.innerHTML = messages
       .map((m) => {
-        const roleLabel = m.role === "user" ? "你" : m.role === "error" ? "错误" : "AI"
+        const roleLabel = m.role === "user" ? aiT("你") : m.role === "error" ? aiT("错误") : "AI"
         const sourcesHtml =
           m.sources && m.sources.length > 0
             ? `<div class="ai-chat-widget__sources">
-                <div class="ai-chat-widget__sources-title">来源</div>
+                <div class="ai-chat-widget__sources-title">${aiT("来源")}</div>
                 <div class="ai-chat-widget__sources-list">
                   ${m.sources.filter((s) => s.url).map((s) => `<a class="ai-chat-widget__source-link" href="${s.url}">${escapeHtml(s.title || s.url)}</a>`).join("")}
                 </div>
@@ -309,7 +361,7 @@ function mountAIChatWidget() {
       })
 
       if (!res.ok) {
-        let detail = `请求失败（${res.status}）`
+        let detail = `${aiT("请求失败")}（${res.status}）`
         try {
           const data = await res.json()
           if (data?.message) detail = data.message
@@ -352,10 +404,10 @@ function mountAIChatWidget() {
                   }
                 }
               } else if ("error" in evt) {
-                throw new Error(evt.error?.message || "服务暂时不可用。")
+                throw new Error(evt.error?.message || aiT("服务暂时不可用。"))
               }
             } catch (e) {
-              if (e instanceof Error && e.message !== "服务暂时不可用。" && !e.message.startsWith("请求失败")) throw e
+              if (e instanceof Error && e.message !== aiT("服务暂时不可用。") && !e.message.startsWith(aiT("请求失败"))) throw e
             }
           }
         }
@@ -364,7 +416,7 @@ function mountAIChatWidget() {
       assistantMsg.sources = sources
       renderMessages()
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "暂时无法完成回答，请稍后再试。"
+      const msg = err instanceof Error ? err.message : aiT("暂时无法完成回答，请稍后再试。")
       messages.pop()
       if (assistantMsg.content === "") messages.pop()
       messages.push({ role: "error", content: msg })
@@ -404,6 +456,32 @@ function mountAIChatWidget() {
   }
 
   syncUI()
+
+  // 异步拉取最新 blog_locale:appearance 缓存首次可能未就绪,locale 变化则更新 UI 文案。
+  fetch("/api/appearance").then(r => (r.ok ? r.json() : null)).then(c => {
+    if (!c || typeof c.blog_locale !== "string") return
+    const prev = aiChatLocale()
+    try {
+      localStorage.setItem("blog-appearance-v1", JSON.stringify(c))
+    } catch {
+      /* ignore */
+    }
+    if (c.blog_locale === prev) return
+    const set = (sel: string, fn: (el: HTMLElement) => void) => {
+      const el = root.querySelector<HTMLElement>(sel)
+      if (el) fn(el)
+    }
+    set(".ai-chat-widget__launcher", (el) => el.setAttribute("aria-label", aiT("AI 问答")))
+    set(".ai-chat-widget__header-title", (el) => (el.textContent = aiT("AI 问答")))
+    set(".ai-chat-widget__header-subtitle", (el) => (el.textContent = aiT("基于当前博客内容回答问题，也可直接提交反馈哦")))
+    set(".ai-chat-widget__close", (el) => el.setAttribute("aria-label", aiT("关闭")))
+    textarea.placeholder = aiT("输入你的问题…")
+    set(".ai-chat-widget__hint", (el) => (el.textContent = aiT("Enter 发送，Shift+Enter 换行")))
+    sendBtn.textContent = aiT("发送")
+    renderMessages()
+  }).catch(() => {
+    /* ignore */
+  })
 }
 
 function initialize() {

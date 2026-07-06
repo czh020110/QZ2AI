@@ -15,6 +15,7 @@ from llama_index.core.base.llms.types import ChatMessage, MessageRole
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai_like import OpenAILike
 
+from .appearance import get_appearance_public
 from .config import get_settings
 from .errors import AppError
 from .feedback_tool import submit_feedback
@@ -25,7 +26,7 @@ from .retriever import retrieve, retrieve_by_slug
 
 logger = logging.getLogger("api")
 
-MOCK_CHUNKS = ["（MOCK）", "后端骨架已就绪，", "Agent 链路已接入。"]
+MOCK_CHUNKS = ["[MOCK] ", "Backend skeleton ready, ", "Agent pipeline connected."]
 
 # 当前请求的检索来源（协程隔离，替代模块级全局变量避免并发竞态）
 _current_sources: ContextVar[list[dict]] = ContextVar("_current_sources", default=[])
@@ -38,23 +39,23 @@ def _sse(payload: dict) -> str:
 
 def _build_rag_tool():
     def search_blog_notes(query: str) -> str:
-        """搜索博客所有笔记内容。当用户提问需要查找博客中的知识、观点、技术笔记、学习记录等内容时调用此工具。
+        """Search all blog notes. Call this when the user asks about knowledge, opinions, technical notes, or study records in the blog.
 
-        适用场景：
-        - 用户询问博客中记录过的技术、概念、方法、工具
-        - 用户询问博主的观点、经验、学习笔记
-        - 用户询问"博客里有没有..."、"你写过..."、"笔记中关于..."
-        - 当前页面无法回答的问题，但可能在其他笔记中有答案
+        Applicable scenarios:
+        - The user asks about techniques, concepts, methods, or tools recorded in the blog
+        - The user asks about the blogger's opinions, experiences, or study notes
+        - The user asks "does the blog have...", "have you written...", "notes about..."
+        - A question the current page cannot answer but other notes might
 
-        参数说明：
-        - query: 搜索查询，应提取用户问题中的核心关键词
+        Parameters:
+        - query: the search query; extract the core keywords from the user's question
         """
         contexts = retrieve(query)
         if not contexts:
             _current_sources.set([])
-            return "未找到相关博客内容。"
+            return "No relevant blog content found."
         content_block = "\n\n".join(
-            f"[来源:{c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
+            f"[Source: {c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
         )
         seen_urls: set[str] = set()
         deduped = []
@@ -69,7 +70,7 @@ def _build_rag_tool():
     return FunctionTool.from_defaults(
         fn=search_blog_notes,
         name="search_blog_notes",
-        description="搜索博客所有笔记内容。当用户询问博客中记录的知识、观点、技术笔记、学习记录或当前页面无法回答的问题时使用。",
+        description="Search all blog notes. Use when the user asks about knowledge, opinions, technical notes, study records in the blog, or a question the current page cannot answer.",
     )
 
 
@@ -79,20 +80,20 @@ def _build_feedback_tool():
 
 def _build_current_page_tool():
     def search_current_page(query: str) -> str:
-        """检索当前用户正在阅读的这篇笔记的内容。
-        当用户询问"这篇文章讲了什么"、"这里说的XXX是什么意思"、"这个章节的内容"等明确指向当前页面的问题时调用。
+        """Retrieve the content of the note the user is currently reading.
+        Call this when the user asks "what is this article about", "what does XXX here mean", or other questions clearly pointing to the current page.
 
-        参数说明：
-        - query: 搜索查询，提取问题的核心关键词
+        Parameters:
+        - query: the search query; extract the core keywords from the question
         """
         source_url = _current_page_url.get()
         if not source_url:
-            return "当前页面信息不可用，请尝试全局搜索。"
+            return "Current page info unavailable; try a global search."
         contexts = retrieve_by_slug(query, source_url)
         if not contexts:
-            return "当前页面中未找到相关内容。"
+            return "No relevant content found in the current page."
         content_block = "\n\n".join(
-            f"[来源:{c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
+            f"[Source: {c.get('title', '')}]\n{c.get('text', '')}" for c in contexts
         )
         seen_urls: set[str] = set()
         deduped = []
@@ -107,7 +108,7 @@ def _build_current_page_tool():
     return FunctionTool.from_defaults(
         fn=search_current_page,
         name="search_current_page",
-        description="检索当前用户正在阅读的这篇笔记内容。用于回答指向当前页面的问题，如'这篇文章讲了什么'、'这里的XXX是什么意思'。",
+        description="Retrieve the content of the note the user is currently reading. Use for questions pointing to the current page, e.g. 'what is this article about', 'what does XXX here mean'.",
     )
 
 
@@ -144,17 +145,28 @@ async def chat_event_stream(req: ChatRequest) -> AsyncIterator[str]:
         return
 
     try:
-        user_msg = req.question
+        # 反馈语言提示:submit_feedback 的 content 用管理员语言(admin_locale)撰写,
+        # 因反馈供管理员查看。提示词与工具描述保持英文,仅此处动态注入语言名。
+        try:
+            admin_locale = get_appearance_public().get("admin_locale", "en-US")
+        except Exception:
+            admin_locale = "en-US"
+        lang_name = {"en-US": "English", "zh-CN": "Chinese", "ja-JP": "Japanese"}.get(admin_locale, "English")
+        feedback_hint = (
+            f"[Instruction] When you call submit_feedback, write the feedback content in {lang_name} "
+            f"(the site admin's language) so the admin can read it."
+        )
+        user_msg = feedback_hint + "\n\n" + req.question
         if page_ctx and page_ctx.slug:
             _current_page_url.set(page_ctx.slug)
             note_ctx = get_note_context(page_ctx.slug)
-            ctx_lines = [f"[当前页面：{page_ctx.slug}]"]
+            ctx_lines = [f"[Current page: {page_ctx.slug}]"]
             if note_ctx.get("frontmatter"):
                 fm = note_ctx["frontmatter"]
-                ctx_lines.append("笔记元数据：" + "，".join(f"{k}: {v}" for k, v in fm.items()))
+                ctx_lines.append("Note metadata: " + ", ".join(f"{k}: {v}" for k, v in fm.items()))
             if note_ctx.get("headings"):
-                ctx_lines.append("章节大纲：\n" + "\n".join(note_ctx["headings"]))
-            user_msg = "\n".join(ctx_lines) + "\n\n" + req.question
+                ctx_lines.append("Headings outline:\n" + "\n".join(note_ctx["headings"]))
+            user_msg = feedback_hint + "\n\n" + "\n".join(ctx_lines) + "\n\n" + req.question
 
         chat_history = [
             ChatMessage(role=_ROLE_MAP.get(m.role, MessageRole.USER), content=m.content)

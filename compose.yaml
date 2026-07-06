@@ -50,6 +50,9 @@ services:
       # bind 到空目录、构建 0 篇。HOST_NOTES_DIR 由 blog 容器探测宿主机路径后注入；
       # 宿主机端直接 docker compose up 时未注入该变量，回退 ./data（宿主机项目根下真实存在）。
       - ${HOST_NOTES_DIR:-./data}/notes:/data/notes:ro
+      # 挂载整个 data 目录只读,供 entrypoint 读取 appearance.json 的 blog_locale,
+      # 运行时 sed 覆盖 quartz.config.yaml 的 locale(语言切换免重建镜像)。
+      - ${HOST_NOTES_DIR:-./data}:/data_store:ro
       - public:/public
     restart: "no"
 

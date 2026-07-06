@@ -1028,9 +1028,506 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ===== i18n =====
+// 管理界面多语言:字典 key 为中文短语/整句,applyI18n 遍历 DOM 文本节点与属性做包含替换。
+// key 按长度降序替换,避免短 key 误替换长 key 的子串。zh-CN 直接返回原文(无需字典)。
+// 动态 render 函数仍输出中文,末尾调 applyI18n() 即可生效,无需逐个 t() 改造。
+const I18N = {
+  "en-US": {
+    "管理后台": "Admin Panel",
+    "请输入管理员 Token 以继续": "Enter admin token to continue",
+    "验证登录": "Sign In",
+    "验证中...": "Verifying...",
+    "Token 无效，请重试": "Invalid token, please retry",
+    "请输入 Token": "Please enter token",
+    "博客管理": "Blog Admin",
+    "反馈管理": "Feedback",
+    "模型配置": "Models",
+    "数据同步": "Data Sync",
+    "自动同步": "Auto Sync",
+    "自动通知": "Notifications",
+    "安全设置": "Security",
+    "外观设置": "Appearance",
+    "Token 已认证": "Authenticated",
+    "重置 Token": "Reset Token",
+    "全部": "All",
+    "待处理": "Pending",
+    "已处理": "Resolved",
+    "已忽略": "Dismissed",
+    "查看和处理用户提交的文档反馈": "Review and handle user-submitted document feedback",
+    "LLM、Embedding、Reranker 及超时设置": "LLM, Embedding, Reranker and timeout settings",
+    "数据目录与远程同步源配置": "Data directory and remote sync source",
+    "反馈通知与同步通知配置": "Feedback and sync notification settings",
+    "Token 与 CORS 安全配置": "Token and CORS security settings",
+    "字体、网站图标、头像与社交联系方式(保存后刷新博客可见)": "Fonts, favicon, avatar and social links (refresh blog after save)",
+    "远程笔记变动时自动触发同步与重建": "Auto sync and rebuild on remote note changes",
+    "暂无反馈记录": "No feedback yet",
+    "加载失败": "Load failed",
+    "操作失败": "Operation failed",
+    "保存": "Save",
+    "保存中": "Saving...",
+    "保存成功，即时生效": "Saved, effective immediately",
+    "保存失败": "Save failed",
+    "保存外观配置": "Save Appearance",
+    "外观配置已生效,刷新博客可见": "Appearance applied, refresh blog to see",
+    "刷新博客可见": "refresh blog to see",
+    "站点标题": "Site Title",
+    "标题文字": "Title text",
+    "字体设置": "Fonts",
+    "预设字体": "Preset font",
+    "自定义 font-family": "Custom font-family",
+    "签名字体(站点标题字体)": "Signature font (site title font)",
+    "预设签名字体": "Preset signature font",
+    "自定义签名 font-family": "Custom signature font-family",
+    "网站图标 (Favicon)": "Favicon",
+    "上传 Favicon": "Upload Favicon",
+    "上传头像": "Upload Avatar",
+    "博客头像": "Blog avatar",
+    "头像形状": "Avatar shape",
+    "圆圈": "Circle",
+    "方形": "Square",
+    "圆角": "Rounded",
+    "点击头像跳转链接": "Avatar click link",
+    "社交联系方式 (关系图谱上方)": "Social links (above the graph)",
+    "添加社交链接": "Add social link",
+    "名称": "Name",
+    "内置图标": "Built-in icon",
+    "自定义图标": "Custom icon",
+    "点击动作": "Click action",
+    "形状": "Shape",
+    "删除": "Delete",
+    "编辑": "Edit",
+    "取消": "Cancel",
+    "背景颜色预设": "Background color presets",
+    "背景颜色 (深色/浅色预设)": "Background color (dark/light presets)",
+    "选择预设": "Select preset",
+    "选择一个预设应用到博客背景": "Pick a preset to apply as blog background",
+    "保存为新预设": "Save as new preset",
+    "预设名称": "Preset name",
+    "浅色背景": "Light background",
+    "深色背景": "Dark background",
+    "当前应用": "Active",
+    "上传成功": "Uploaded",
+    "上传失败": "Upload failed",
+    "暂无预设": "No presets yet",
+    "暂无社交链接": "No social links yet",
+    "配置未加载": "Config not loaded",
+    "暂无配置项": "No config items",
+    "暂无可配置项": "No configurable items",
+    "标记已处理": "Mark resolved",
+    "标记已忽略": "Mark dismissed",
+    "恢复待处理": "Restore pending",
+    "同步": "Sync",
+    "同步中": "Syncing",
+    "构建中": "Building",
+    "空闲": "Idle",
+    "同步完成": "Sync complete",
+    "同步失败": "Sync failed",
+    "触发失败": "Trigger failed",
+    "无变更需要保存": "No changes to save",
+    "已修改": "Modified",
+    "保存配置": "Save Config",
+    "记得保存配置": "Remember to save config",
+    "配置已更新，即时生效": "Config updated, effective immediately",
+    "重置": "Reset",
+    "语言设置": "Language",
+    "博客界面语言": "Blog UI language",
+    "管理界面语言": "Admin UI language",
+    "博客语言切换需重建 Quartz,保存后自动触发(约 30-60 秒)": "Blog language switch triggers a Quartz rebuild (about 30-60s after save)",
+    "管理语言即时生效": "Admin language applies instantly",
+    "其他": "Other",
+    "错误": "Error",
+    "建议": "Suggestion",
+    "成功": "Success",
+    "复选": "Toggle",
+    "跳转": "Jump",
+    "复制": "Copy",
+    "复制链接": "Copy link",
+    "已复制": "Copied",
+    "复制失败,请手动复制": "Copy failed, please copy manually",
+    "字段说明": "Field description",
+    "同步状态": "Sync Status",
+    "当前状态": "Current Status",
+    "最近同步": "Last Sync",
+    "上次状态": "Last Status",
+    "同步方式": "Sync Mode",
+    "同步策略": "Sync Strategy",
+    "定时同步": "Scheduled Sync",
+    "定时同步间隔（秒": "Scheduled Interval (s)",
+    "手动触发同步": "Manual Trigger Sync",
+    "手动同步（仅点按钮触发": "Manual Sync (button only)",
+    "同步任务已触发，syncer 容器将自动执行": "Sync triggered, syncer will run automatically",
+    "创建工作流": "Create Workflow",
+    "保存同步配置": "Save Sync Config",
+    "保存后即时生效": "Effective immediately after save",
+    "构建中（索引": "Building (indexing",
+    "不加速": "No acceleration",
+    "代理地址": "Proxy Address",
+    "代码仓库": "Code Repository",
+    "加速镜像前缀": "Mirror Accelerator Prefix",
+    "密钥": "Secret",
+    "未填写，点击输入": "Not set, click to input",
+    "检测到未创建 GitHub Actions 工作流，已为你定位到下方": "No GitHub Actions workflow detected, see below to create",
+    "从 COS 存储桶拉取笔记": "Pull notes from COS bucket",
+    "从 GitHub 仓库拉取笔记（只读": "Pull notes from GitHub repo (read-only",
+    "仅 GitHub 同步生效；代理需先在宿主机开启 allow-lan，留空则直连": "GitHub sync only; proxy needs allow-lan on host, empty = direct",
+    "直连": "Direct",
+    "定时：定时轮询兜底": "Scheduled: polling fallback",
+    "定时：定时轮询拉取（COS 推荐": "Scheduled: polling pull (COS recommended",
+    "手动：仅点按钮触发": "Manual: button only",
+    "手动：仅点按钮触发，webhook 被拦截": "Manual: button only, webhook intercepted",
+    "流程：同步中（远程拉取": "Process: syncing (remote pull",
+    "完成状态停留10秒": "Complete state stays 10s",
+    "刷新缓存": "Refresh cache",
+    "立即同步": "Sync now",
+    "自动：push 即触发（推荐": "Auto: push triggered (recommended",
+    "仅「定时同步」模式生效，COS 默认 1800，GitHub 模式设 0": "Only \"Scheduled\" mode; COS default 1800, GitHub mode 0",
+    "防抖窗口（秒": "Debounce window (s",
+    "仓库中已有博客同步工作流": "Blog sync workflow exists in repo",
+    "仓库中尚未创建工作流文件": "No workflow file created yet",
+    "GitHub Actions 自动化": "GitHub Actions Automation",
+    "工作流预览（触发路径：根据配置）": "Workflow preview (trigger path: per config)",
+    "在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml": "Create/update .github/workflows/blog-sync.yml in the GitHub repo",
+    "更新工作流": "Update Workflow",
+    "工作流已创建/更新": "Workflow created/updated",
+    "通知类型": "Notification Type",
+    "有新用户反馈时邮件提醒": "Email alert on new feedback",
+    "同步/索引/构建失败时邮件告警": "Email alert on sync/index/build failure",
+    "通知方式": "Notification Method",
+    "邮件通知": "Email Notification",
+    "目前仅支持邮件通知方式，后续可能扩展其他通知方式（如 Webhook、企业微信等": "Only email supported now; may extend to Webhook, WeCom, etc.",
+    "修改后即时生效": "Effective immediately after change",
+    "选择预设会回填到自定义框,可再微调": "Selecting a preset fills the custom box; tweak as needed",
+    "显示在博客左上角站点标题位置,留空默认 \"My Blog\"": "Shown at site title (top-left); empty defaults to \"My Blog\"",
+    "留空=用主题默认字体;直接写 CSS font-family 值": "Empty = theme default font; write CSS font-family directly",
+    "作用于站点标题,独立于正文字体;留空跟随默认手写体": "Applies to site title, independent of body font; empty = default handwriting",
+    "直接写 CSS font-family 值,留空使用默认跨平台手写体": "Write CSS font-family; empty = default cross-platform handwriting",
+    "留空使用默认跨平台手写体": "empty = default cross-platform handwriting",
+    "选择一个预设应用到博客背景,同时只生效一个": "Pick a preset for blog background; only one active at a time",
+    "同时只生效一个": "only one active at a time",
+    "填 http(s) 链接,留空则头像不可点击": "Fill http(s) link; empty = avatar not clickable",
+    "当前仅内置百炼 rerank（qwen3-rerank）": "Only DashScope rerank built-in (qwen3-rerank)",
+    "百炼用 text-embedding-v4，OpenAI 用 text-embedding-3 系列": "DashScope uses text-embedding-v4, OpenAI uses text-embedding-3 series",
+    "米白": "Cream",
+    "自动同步（push 触发，仅 GitHub）": "Auto sync (push, GitHub only)",
+    "手动同步（仅点按钮触发）": "Manual sync (button only)",
+    "定时同步间隔（秒，0=禁用）": "Scheduled interval (s, 0=disabled)",
+    "如 米白": "e.g. Cream",
+    "浅": "Light",
+    "深": "Dark",
+    "名称": "Name",
+    "未命名": "Untitled",
+    "保存后即时生效,刷新博客可见": "Effective immediately, refresh blog to see",
+    "留空=点击无跳转": "Empty = no jump",
+    "跳转链接": "Jump link",
+    "留空表示不加速": "Empty = no acceleration",
+    "留空=不加速": "Empty = no acceleration",
+    "留空=跟随默认": "Empty = default",
+    "留空表示直连": "Empty = direct",
+    "留空表示从仓库根目录拉取": "Empty = pull from repo root",
+    "留空表示从桶根目录同步": "Empty = sync from bucket root",
+    "链接 URL 或邮箱(email 图标+跳转自动 mailto)": "URL or email (email icon + auto mailto on jump)",
+    "已开启": "Enabled",
+    "已关闭": "Disabled",
+    "数据目录": "Data Directory",
+    "已配置": "Configured",
+    "支持 png/jpeg/webp/svg/ico/gif,≤2MB": "Supports png/jpeg/webp/svg/ico/gif, ≤2MB",
+    "应用": "Apply",
+    "已应用": "Applied",
+    "永久记录在「上次状态」标签": "permanently recorded in the Last Status tag",
+    "安全 Token": "Security Token",
+    "未设置": "Not set",
+    "反馈通知": "Feedback Notification",
+    "同步通知": "Sync Notification",
+    "LLM 模型": "LLM",
+    "Embedding 向量": "Embedding",
+    "Reranker 重排序": "Reranker",
+    "检索参数": "Retrieval",
+    "超时与重试": "Timeout & Retry",
+    "COS 同步": "COS Sync",
+    "GitHub 同步": "GitHub Sync",
+    "敏感": "Sensitive",
+    "清除": "Clear",
+    "操作失败": "Action failed",
+    "成功": "Success",
+    "建议": "Suggestion",
+    "待处理": "Pending",
+  },
+  "ja-JP": {
+    "管理后台": "管理パネル",
+    "请输入管理员 Token 以继续": "管理者トークンを入力してください",
+    "验证登录": "ログイン",
+    "验证中...": "認証中...",
+    "Token 无效，请重试": "トークンが無効です、再試行してください",
+    "请输入 Token": "トークンを入力",
+    "博客管理": "ブログ管理",
+    "反馈管理": "フィードバック",
+    "模型配置": "モデル",
+    "数据同步": "データ同期",
+    "自动同步": "自動同期",
+    "自动通知": "通知",
+    "安全设置": "セキュリティ",
+    "外观设置": "外観",
+    "Token 已认证": "認証済み",
+    "重置 Token": "トークンリセット",
+    "全部": "すべて",
+    "待处理": "未処理",
+    "已处理": "処理済み",
+    "已忽略": "却下",
+    "查看和处理用户提交的文档反馈": "ユーザー提出のドキュメントフィードバックを確認・処理",
+    "LLM、Embedding、Reranker 及超时设置": "LLM・Embedding・Rerankerとタイムアウト設定",
+    "数据目录与远程同步源配置": "データディレクトリとリモート同期元の設定",
+    "反馈通知与同步通知配置": "フィードバック通知と同期通知の設定",
+    "Token 与 CORS 安全配置": "トークンとCORSセキュリティ設定",
+    "字体、网站图标、头像与社交联系方式(保存后刷新博客可见)": "フォント・ファビコン・アバター・ソーシャルリンク（保存後ブログ更新で反映）",
+    "远程笔记变动时自动触发同步与重建": "リモートノート変更で自動同期・再構築",
+    "暂无反馈记录": "フィードバックはまだありません",
+    "加载失败": "読み込み失敗",
+    "操作失败": "操作失敗",
+    "保存": "保存",
+    "保存中": "保存中...",
+    "保存成功，即时生效": "保存済み、即時反映",
+    "保存失败": "保存失敗",
+    "保存外观配置": "外観を保存",
+    "外观配置已生效,刷新博客可见": "外観設定を適用、ブログ更新で反映",
+    "刷新博客可见": "ブログ更新で反映",
+    "站点标题": "サイトタイトル",
+    "标题文字": "タイトルテキスト",
+    "字体设置": "フォント",
+    "预设字体": "プリセットフォント",
+    "自定义 font-family": "カスタム font-family",
+    "签名字体(站点标题字体)": "署名フォント（サイトタイトル）",
+    "预设签名字体": "プリセット署名フォント",
+    "自定义签名 font-family": "カスタム署名フォント",
+    "网站图标 (Favicon)": "ファビコン",
+    "上传 Favicon": "ファビコンをアップロード",
+    "上传头像": "アバタをアップロード",
+    "博客头像": "ブログアバター",
+    "头像形状": "アバター形状",
+    "圆圈": "円",
+    "方形": "四角",
+    "圆角": "角丸",
+    "点击头像跳转链接": "アバタークリック先",
+    "社交联系方式 (关系图谱上方)": "ソーシャルリンク（グラフの上）",
+    "添加社交链接": "ソーシャルリンクを追加",
+    "名称": "名前",
+    "内置图标": "組み込みアイコン",
+    "自定义图标": "カスタムアイコン",
+    "点击动作": "クリック動作",
+    "形状": "形状",
+    "删除": "削除",
+    "编辑": "編集",
+    "取消": "キャンセル",
+    "背景颜色预设": "背景色プリセット",
+    "背景颜色 (深色/浅色预设)": "背景色（ダーク/ライトプリセット）",
+    "选择预设": "プリセット選択",
+    "选择一个预设应用到博客背景": "ブログ背景に適用するプリセットを選択",
+    "保存为新预设": "新規プリセットとして保存",
+    "预设名称": "プリセット名",
+    "浅色背景": "ライト背景",
+    "深色背景": "ダーク背景",
+    "当前应用": "適用中",
+    "上传成功": "アップロード成功",
+    "上传失败": "アップロード失敗",
+    "暂无预设": "プリセットがありません",
+    "暂无社交链接": "ソーシャルリンクがありません",
+    "配置未加载": "設定未読込",
+    "暂无配置项": "設定項目がありません",
+    "暂无可配置项": "設定可能な項目がありません",
+    "标记已处理": "処理済みに設定",
+    "标记已忽略": "却下に設定",
+    "恢复待处理": "未処理に戻す",
+    "同步": "同期",
+    "同步中": "同期中",
+    "构建中": "構築中",
+    "空闲": "アイドル",
+    "同步完成": "同期完了",
+    "同步失败": "同期失敗",
+    "触发失败": "トリガー失敗",
+    "无变更需要保存": "保存する変更はありません",
+    "已修改": "変更あり",
+    "保存配置": "設定を保存",
+    "记得保存配置": "設定の保存をお忘れなく",
+    "配置已更新，即时生效": "設定を更新、即時反映",
+    "重置": "リセット",
+    "语言设置": "言語設定",
+    "博客界面语言": "ブログUI言語",
+    "管理界面语言": "管理UI言語",
+    "博客语言切换需重建 Quartz,保存后自动触发(约 30-60 秒)": "ブログ言語切替はQuartz再構築が必要、保存後自動実行（約30-60秒）",
+    "管理语言即时生效": "管理言語は即時反映",
+    "其他": "その他",
+    "错误": "エラー",
+    "建议": "提案",
+    "成功": "成功",
+    "复选": "切替",
+    "跳转": "ジャンプ",
+    "复制": "コピー",
+    "复制链接": "リンクをコピー",
+    "已复制": "コピー済み",
+    "复制失败,请手动复制": "コピー失敗、手動でコピーしてください",
+    "字段说明": "フィールド説明",
+    "同步状态": "同期ステータス",
+    "当前状态": "現在のステータス",
+    "最近同步": "最終同期",
+    "上次状态": "前回ステータス",
+    "同步方式": "同期方式",
+    "同步策略": "同期ストラテジー",
+    "定时同步": "定時同期",
+    "定时同步间隔（秒": "定時間隔（秒",
+    "手动触发同步": "手動トリガー同期",
+    "手动同步（仅点按钮触发": "手動同期（ボタンのみ",
+    "同步任务已触发，syncer 容器将自动执行": "同期トリガー済み、syncerが自動実行",
+    "创建工作流": "ワークフロー作成",
+    "保存同步配置": "同期設定を保存",
+    "保存后即时生效": "保存後即時反映",
+    "构建中（索引": "構築中（索引",
+    "不加速": "加速なし",
+    "代理地址": "プロキシアドレス",
+    "代码仓库": "コードリポジトリ",
+    "加速镜像前缀": "ミラー加速プレフィックス",
+    "密钥": "シークレット",
+    "未填写，点击输入": "未設定、クリックで入力",
+    "检测到未创建 GitHub Actions 工作流，已为你定位到下方": "GitHub Actionsワークフロー未検出、下で作成",
+    "从 COS 存储桶拉取笔记": "COSバケットからノート取得",
+    "从 GitHub 仓库拉取笔记（只读": "GitHubリポジトリからノート取得（読み取り専用",
+    "仅 GitHub 同步生效；代理需先在宿主机开启 allow-lan，留空则直连": "GitHub同期のみ、プロキシはホストでallow-lan必要、空=直接",
+    "直连": "直接接続",
+    "定时：定时轮询兜底": "定時：ポーリングフォールバック",
+    "定时：定时轮询拉取（COS 推荐": "定時：ポーリング取得（COS推奨",
+    "手动：仅点按钮触发": "手動：ボタンのみ",
+    "手动：仅点按钮触发，webhook 被拦截": "手動：ボタンのみ、webhook遮断",
+    "流程：同步中（远程拉取": "処理：同期中（リモート取得",
+    "完成状态停留10秒": "完了状態10秒維持",
+    "刷新缓存": "キャッシュ更新",
+    "立即同步": "今すぐ同期",
+    "自动：push 即触发（推荐": "自動：push連動（推奨",
+    "仅「定时同步」模式生效，COS 默认 1800，GitHub 模式设 0": "「定時同期」モードのみ有効、COSデフォルト1800、GitHubモード0",
+    "防抖窗口（秒": "デバウンスウィンドウ（秒",
+    "仓库中已有博客同步工作流": "ブログ同期ワークフローがリポジトリに存在",
+    "仓库中尚未创建工作流文件": "ワークフローファイル未作成",
+    "GitHub Actions 自动化": "GitHub Actions 自動化",
+    "工作流预览（触发路径：根据配置）": "ワークフロープレビュー（トリガーパス：設定に基づく）",
+    "在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml": "GitHubリポジトリに .github/workflows/blog-sync.yml を作成/更新",
+    "更新工作流": "ワークフロー更新",
+    "工作流已创建/更新": "ワークフロー作成/更新済み",
+    "通知类型": "通知タイプ",
+    "有新用户反馈时邮件提醒": "新規フィードバックでメール通知",
+    "同步/索引/构建失败时邮件告警": "同期/索引/構築失敗でメール通知",
+    "通知方式": "通知方式",
+    "邮件通知": "メール通知",
+    "目前仅支持邮件通知方式，后续可能扩展其他通知方式（如 Webhook、企业微信等": "現在メール通知のみ、将来的にWebhook・企業WeChat等を拡張予定",
+    "修改后即时生效": "変更後即時反映",
+    "选择预设会回填到自定义框,可再微调": "プリセット選択でカスタム欄に反映、調整可能",
+    "显示在博客左上角站点标题位置,留空默认 \"My Blog\"": "ブログ左上のサイトタイトル位置に表示、空はデフォルト \"My Blog\"",
+    "留空=用主题默认字体;直接写 CSS font-family 值": "空=テーマデフォルト、CSS font-familyを直接記述",
+    "作用于站点标题,独立于正文字体;留空跟随默认手写体": "サイトタイトルに適用、本文フォントと独立、空=デフォルト手書き体",
+    "直接写 CSS font-family 值,留空使用默认跨平台手写体": "CSS font-familyを記述、空=デフォルトクロスプラットフォーム手書き体",
+    "留空使用默认跨平台手写体": "空=デフォルトクロスプラットフォーム手書き体",
+    "选择一个预设应用到博客背景,同时只生效一个": "ブログ背景にプリセットを適用、同時に1つのみ有効",
+    "同时只生效一个": "同時に1つのみ有効",
+    "填 http(s) 链接,留空则头像不可点击": "http(s)リンクを入力、空=アバタークリック不可",
+    "当前仅内置百炼 rerank（qwen3-rerank）": "百煉rerankのみ内蔵（qwen3-rerank）",
+    "百炼用 text-embedding-v4，OpenAI 用 text-embedding-3 系列": "百煉はtext-embedding-v4、OpenAIはtext-embedding-3系列",
+    "米白": "クリーム",
+    "自动同步（push 触发，仅 GitHub）": "自動同期（push、GitHubのみ）",
+    "手动同步（仅点按钮触发）": "手動同期（ボタンのみ）",
+    "定时同步间隔（秒，0=禁用）": "定時間隔（秒、0=無効）",
+    "如 米白": "例 クリーム",
+    "浅": "ライト",
+    "深": "ダーク",
+    "名称": "名前",
+    "未命名": "無題",
+    "保存后即时生效,刷新博客可见": "即時反映、ブログ更新で確認",
+    "留空=点击无跳转": "空=ジャンプ無し",
+    "跳转链接": "ジャンプリンク",
+    "留空表示不加速": "空=加速なし",
+    "留空=不加速": "空=加速なし",
+    "留空=跟随默认": "空=デフォルト",
+    "留空表示直连": "空=直接接続",
+    "留空表示从仓库根目录拉取": "空=リポジトリルートから取得",
+    "留空表示从桶根目录同步": "空=バケットルートから同期",
+    "链接 URL 或邮箱(email 图标+跳转自动 mailto)": "URLまたはメール（email アイコン+ジャンプで自動 mailto）",
+    "已开启": "オン",
+    "已关闭": "オフ",
+    "数据目录": "データディレクトリ",
+    "已配置": "設定済み",
+    "支持 png/jpeg/webp/svg/ico/gif,≤2MB": "png/jpeg/webp/svg/ico/gif 対応、≤2MB",
+    "应用": "適用",
+    "已应用": "適用済み",
+    "永久记录在「上次状态」标签": "「前回ステータス」タグに永久記録",
+    "安全 Token": "セキュリティトークン",
+    "未设置": "未設定",
+    "反馈通知": "フィードバック通知",
+    "同步通知": "同期通知",
+    "LLM 模型": "LLM",
+    "Embedding 向量": "Embedding",
+    "Reranker 重排序": "Reranker",
+    "检索参数": "検索パラメータ",
+    "超时与重试": "タイムアウト・リトライ",
+    "COS 同步": "COS同期",
+    "GitHub 同步": "GitHub同期",
+    "敏感": "機密",
+    "清除": "クリア",
+    "操作失败": "操作失敗",
+    "成功": "成功",
+    "建议": "提案",
+    "待处理": "未処理",
+  }
+};
+const SUPPORTED_LOCALES = [
+  { value: "en-US", label: "English" },
+  { value: "zh-CN", label: "简体中文" },
+  { value: "ja-JP", label: "日本語" }
+];
+let adminLocale = sessionStorage.getItem('admin_locale') || 'en-US';
+
+function t(zh) {
+  if (adminLocale === 'zh-CN') return zh;
+  return (I18N[adminLocale] || {})[zh] || zh;
+}
+
+// 遍历 DOM 文本节点与属性,按字典 key 长度降序做包含替换。
+// 长 key 先替换,避免短 key 误替换长 key 的子串;替换后文本为译文,不含中文 key,不会重复匹配。
+function applyI18n() {
+  if (adminLocale === 'zh-CN') return;
+  const dict = I18N[adminLocale] || {};
+  const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
+  const replaceText = (s) => {
+    if (!s || !/[一-龥]/.test(s)) return s;
+    let r = s;
+    for (const k of keys) {
+      if (r.includes(k)) r = r.split(k).join(dict[k]);
+    }
+    return r;
+  };
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => n.nodeValue && n.nodeValue.trim() && /[一-龥]/.test(n.nodeValue)
+      ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+  });
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  nodes.forEach(nd => { nd.nodeValue = replaceText(nd.nodeValue); });
+  document.querySelectorAll('[placeholder],[title]').forEach(el => {
+    ['placeholder', 'title'].forEach(attr => {
+      const v = el.getAttribute(attr);
+      if (v && /[一-龥]/.test(v)) el.setAttribute(attr, replaceText(v));
+    });
+  });
+}
+
+// 切换管理界面语言:存 sessionStorage,重新应用 i18n 并重渲染当前 tab 覆盖动态文案。
+function setAdminLocale(locale) {
+  adminLocale = locale;
+  sessionStorage.setItem('admin_locale', locale);
+  applyI18n();
+  if (typeof currentTab !== 'undefined' && currentTab) switchTab(currentTab);
+}
+
 const API_BASE = '/admin/api';
 let adminToken = '';
 let currentFilter = '';
+let currentTab = 'feedback';
 
 // ===== Auth =====
 function getToken() {
@@ -1085,6 +1582,7 @@ async function handleLogin() {
 
 // ===== Tabs =====
 function switchTab(tab) {
+  currentTab = tab;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.tab === tab));
   document.getElementById('tab-feedback').classList.toggle('hidden', tab !== 'feedback');
   document.getElementById('tab-model').classList.toggle('hidden', tab !== 'model');
@@ -1093,13 +1591,16 @@ function switchTab(tab) {
   document.getElementById('tab-security').classList.toggle('hidden', tab !== 'security');
   document.getElementById('tab-sync').classList.toggle('hidden', tab !== 'sync');
   document.getElementById('tab-appearance').classList.toggle('hidden', tab !== 'appearance');
-  if (tab === 'feedback') loadFeedback();
-  if (tab === 'model') loadTabConfig('model', 'modelContent');
-  if (tab === 'sync-data') loadTabConfig('sync-data', 'syncDataContent');
-  if (tab === 'notify') loadTabConfig('notify', 'notifyContent');
-  if (tab === 'security') loadTabConfig('security', 'securityContent');
-  if (tab === 'sync') loadSync();
-  if (tab === 'appearance') loadAppearance();
+  // loadXxx 异步,render 完成后 applyI18n 覆盖动态文案
+  let p;
+  if (tab === 'feedback') p = loadFeedback();
+  else if (tab === 'model') p = loadTabConfig('model', 'modelContent');
+  else if (tab === 'sync-data') p = loadTabConfig('sync-data', 'syncDataContent');
+  else if (tab === 'notify') p = loadTabConfig('notify', 'notifyContent');
+  else if (tab === 'security') p = loadTabConfig('security', 'securityContent');
+  else if (tab === 'sync') p = loadSync();
+  else if (tab === 'appearance') p = loadAppearance();
+  if (p && typeof p.finally === 'function') p.finally(applyI18n);
 }
 
 // ===== Feedback =====
@@ -1130,6 +1631,7 @@ function renderFeedback(items) {
     list.innerHTML = `<div class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <p>暂无反馈记录</p></div>`;
+    applyI18n();
     return;
   }
 
@@ -1153,6 +1655,7 @@ function renderFeedback(items) {
       </div>
     </div>
   `).join('');
+  applyI18n();
 }
 
 async function updateFeedback(id, newStatus) {
@@ -1246,85 +1749,86 @@ const syncOnlyKeys = new Set(['remote_type', 'auto_sync_enabled', 'webhook_secre
 
 // 字段可读标签：保留 Base URL / API Key / Token 等通用缩写，其余下划线字段译为中文
 const fieldLabels = {
-  llm_base_url: 'LLM Base URL',
-  llm_api_key: 'LLM API Key',
-  llm_model: 'LLM 模型',
-  embedding_provider: '嵌入模型供应商',
-  embedding_api_key: 'Embedding API Key',
-  embedding_model: '嵌入模型',
-  embedding_dimensions: '嵌入维度',
-  embedding_text_type: '嵌入文本类型',
-  rerank_provider: '重排序供应商',
-  rerank_api_key: 'Rerank API Key',
-  rerank_model: '重排序模型',
-  rerank_top_n: '重排序保留数量',
-  rerank_enabled: '启用重排序',
-  rerank_instruct: '重排序指令',
-  llm_timeout_seconds: 'LLM 超时（秒）',
-  embedding_timeout_seconds: '嵌入超时（秒）',
-  rerank_timeout_seconds: '重排序超时（秒）',
-  http_max_retries: 'HTTP 最大重试次数',
-  http_retry_backoff_seconds: '重试退避（秒）',
-  embedding_batch_size: '嵌入批量大小',
-  similarity_top_k: '检索召回数量',
-  llm_mock: 'LLM Mock 模式',
-  chroma_dir: 'Chroma 存储目录',
-  notes_dir: '笔记目录',
-  docstore_path: 'Docstore 路径',
-  db_path: 'SQLite 数据库路径',
-  chroma_collection: 'Chroma 集合名',
-  notes_assets_folders: '附件文件夹名',
-  cos_secret_id: 'COS Secret ID',
-  cos_secret_key: 'COS Secret Key',
-  cos_region: 'COS 地域',
-  cos_endpoint: 'COS Endpoint',
-  cos_bucket: 'COS 存储桶',
-  notes_cos_prefix: 'COS 笔记前缀',
-  github_repo_url: 'GitHub 仓库地址',
-  github_branch: 'GitHub 分支',
-  notes_github_prefix: 'GitHub 笔记前缀',
-  github_token: 'GitHub Token',
-  notify_enabled: '反馈通知',
-  sync_notify_enabled: '同步通知',
-  notify_interval_seconds: '通知检查间隔（秒）',
-  notify_email: '接收通知邮箱',
-  mail_server: 'SMTP 服务器',
-  mail_port: 'SMTP 端口',
-  mail_username: '发件邮箱',
-  mail_password: 'SMTP 密码/授权码',
-  reindex_token: 'Reindex Token',
-  admin_token: 'Admin Token',
-  allowed_origins: 'CORS 允许来源',
+  llm_base_url: { 'en-US': 'LLM Base URL', 'zh-CN': 'LLM Base URL', 'ja-JP': 'LLM Base URL' },
+  llm_api_key: { 'en-US': 'LLM API Key', 'zh-CN': 'LLM API Key', 'ja-JP': 'LLM API Key' },
+  llm_model: { 'en-US': 'LLM Model', 'zh-CN': 'LLM 模型', 'ja-JP': 'LLM モデル' },
+  embedding_provider: { 'en-US': 'Embedding Provider', 'zh-CN': '嵌入模型供应商', 'ja-JP': '埋め込みモデルプロバイダ' },
+  embedding_api_key: { 'en-US': 'Embedding API Key', 'zh-CN': 'Embedding API Key', 'ja-JP': 'Embedding API Key' },
+  embedding_model: { 'en-US': 'Embedding Model', 'zh-CN': '嵌入模型', 'ja-JP': '埋め込みモデル' },
+  embedding_dimensions: { 'en-US': 'Embedding Dimensions', 'zh-CN': '嵌入维度', 'ja-JP': '埋め込み次元' },
+  embedding_text_type: { 'en-US': 'Embedding Text Type', 'zh-CN': '嵌入文本类型', 'ja-JP': '埋め込みテキストタイプ' },
+  rerank_provider: { 'en-US': 'Rerank Provider', 'zh-CN': '重排序供应商', 'ja-JP': 'リランキングプロバイダ' },
+  rerank_api_key: { 'en-US': 'Rerank API Key', 'zh-CN': 'Rerank API Key', 'ja-JP': 'Rerank API Key' },
+  rerank_model: { 'en-US': 'Rerank Model', 'zh-CN': '重排序模型', 'ja-JP': 'リランキングモデル' },
+  rerank_top_n: { 'en-US': 'Rerank Top N', 'zh-CN': '重排序保留数量', 'ja-JP': 'リランキング保持数' },
+  rerank_enabled: { 'en-US': 'Enable Rerank', 'zh-CN': '启用重排序', 'ja-JP': 'リランキング有効化' },
+  rerank_instruct: { 'en-US': 'Rerank Instruction', 'zh-CN': '重排序指令', 'ja-JP': 'リランキング指示' },
+  llm_timeout_seconds: { 'en-US': 'LLM Timeout (s)', 'zh-CN': 'LLM 超时（秒）', 'ja-JP': 'LLM タイムアウト（秒）' },
+  embedding_timeout_seconds: { 'en-US': 'Embedding Timeout (s)', 'zh-CN': '嵌入超时（秒）', 'ja-JP': '埋め込みタイムアウト（秒）' },
+  rerank_timeout_seconds: { 'en-US': 'Rerank Timeout (s)', 'zh-CN': '重排序超时（秒）', 'ja-JP': 'リランキングタイムアウト（秒）' },
+  http_max_retries: { 'en-US': 'HTTP Max Retries', 'zh-CN': 'HTTP 最大重试次数', 'ja-JP': 'HTTP 最大リトライ回数' },
+  http_retry_backoff_seconds: { 'en-US': 'Retry Backoff (s)', 'zh-CN': '重试退避（秒）', 'ja-JP': 'リトライバックオフ（秒）' },
+  embedding_batch_size: { 'en-US': 'Embedding Batch Size', 'zh-CN': '嵌入批量大小', 'ja-JP': '埋め込みバッチサイズ' },
+  similarity_top_k: { 'en-US': 'Retrieval Top K', 'zh-CN': '检索召回数量', 'ja-JP': '検索リコール数' },
+  llm_mock: { 'en-US': 'LLM Mock Mode', 'zh-CN': 'LLM Mock 模式', 'ja-JP': 'LLM Mock モード' },
+  chroma_dir: { 'en-US': 'Chroma Storage Dir', 'zh-CN': 'Chroma 存储目录', 'ja-JP': 'Chroma 保存ディレクトリ' },
+  notes_dir: { 'en-US': 'Notes Directory', 'zh-CN': '笔记目录', 'ja-JP': 'ノートディレクトリ' },
+  docstore_path: { 'en-US': 'Docstore Path', 'zh-CN': 'Docstore 路径', 'ja-JP': 'Docstore パス' },
+  db_path: { 'en-US': 'SQLite Database Path', 'zh-CN': 'SQLite 数据库路径', 'ja-JP': 'SQLite データベースパス' },
+  chroma_collection: { 'en-US': 'Chroma Collection', 'zh-CN': 'Chroma 集合名', 'ja-JP': 'Chroma コレクション名' },
+  notes_assets_folders: { 'en-US': 'Asset Folder Names', 'zh-CN': '附件文件夹名', 'ja-JP': '添付フォルダ名' },
+  cos_secret_id: { 'en-US': 'COS Secret ID', 'zh-CN': 'COS Secret ID', 'ja-JP': 'COS Secret ID' },
+  cos_secret_key: { 'en-US': 'COS Secret Key', 'zh-CN': 'COS Secret Key', 'ja-JP': 'COS Secret Key' },
+  cos_region: { 'en-US': 'COS Region', 'zh-CN': 'COS 地域', 'ja-JP': 'COS リージョン' },
+  cos_endpoint: { 'en-US': 'COS Endpoint', 'zh-CN': 'COS Endpoint', 'ja-JP': 'COS Endpoint' },
+  cos_bucket: { 'en-US': 'COS Bucket', 'zh-CN': 'COS 存储桶', 'ja-JP': 'COS バケット' },
+  notes_cos_prefix: { 'en-US': 'COS Notes Prefix', 'zh-CN': 'COS 笔记前缀', 'ja-JP': 'COS ノートプレフィックス' },
+  github_repo_url: { 'en-US': 'GitHub Repo URL', 'zh-CN': 'GitHub 仓库地址', 'ja-JP': 'GitHub リポジトリURL' },
+  github_branch: { 'en-US': 'GitHub Branch', 'zh-CN': 'GitHub 分支', 'ja-JP': 'GitHub ブランチ' },
+  notes_github_prefix: { 'en-US': 'GitHub Notes Prefix', 'zh-CN': 'GitHub 笔记前缀', 'ja-JP': 'GitHub ノートプレフィックス' },
+  github_token: { 'en-US': 'GitHub Token', 'zh-CN': 'GitHub Token', 'ja-JP': 'GitHub Token' },
+  notify_enabled: { 'en-US': 'Feedback Notification', 'zh-CN': '反馈通知', 'ja-JP': 'フィードバック通知' },
+  sync_notify_enabled: { 'en-US': 'Sync Notification', 'zh-CN': '同步通知', 'ja-JP': '同期通知' },
+  notify_interval_seconds: { 'en-US': 'Notification Check Interval (s)', 'zh-CN': '通知检查间隔（秒）', 'ja-JP': '通知チェック間隔（秒）' },
+  notify_email: { 'en-US': 'Notification Email', 'zh-CN': '接收通知邮箱', 'ja-JP': '通知受信メール' },
+  mail_server: { 'en-US': 'SMTP Server', 'zh-CN': 'SMTP 服务器', 'ja-JP': 'SMTP サーバー' },
+  mail_port: { 'en-US': 'SMTP Port', 'zh-CN': 'SMTP 端口', 'ja-JP': 'SMTP ポート' },
+  mail_username: { 'en-US': 'Sender Email', 'zh-CN': '发件邮箱', 'ja-JP': '送信元メール' },
+  mail_password: { 'en-US': 'SMTP Password/Auth Code', 'zh-CN': 'SMTP 密码/授权码', 'ja-JP': 'SMTP パスワード/認証コード' },
+  reindex_token: { 'en-US': 'Reindex Token', 'zh-CN': 'Reindex Token', 'ja-JP': 'Reindex Token' },
+  admin_token: { 'en-US': 'Admin Token', 'zh-CN': 'Admin Token', 'ja-JP': 'Admin Token' },
+  allowed_origins: { 'en-US': 'CORS Allowed Origins', 'zh-CN': 'CORS 允许来源', 'ja-JP': 'CORS 許可オリジン' },
 };
 
 // 需要帮助图标的字段及其说明文案
 const fieldHints = {
-  embedding_text_type: '嵌入时文本用途类型：document（文档检索，默认）或 query（查询向量化）。建议保持默认 document，仅在自定义检索流程时调整。',
-  rerank_top_n: '重排序后保留的文档条数。值越小越精炼但可能漏掉相关内容，建议 3~5，留空则保留全部召回结果。',
-  rerank_instruct: '给重排序模型的指令文本（如「按相关性排序博客文章」）。部分模型支持，可留空走默认行为。',
-  similarity_top_k: '向量检索召回的文档数量，再交给 LLM 引用。值大召回全但耗时高，建议 5（默认）。',
-  llm_mock: '开启后 LLM 不真实调用，返回模拟响应。仅用于联调调试，生产环境务必关闭（默认关闭）。',
-  embedding_batch_size: '嵌入向量单次请求批量。值大速度快但易触发限流，建议保持默认 10。',
-  notes_assets_folders: '逗号分隔的附件文件夹名（默认 assets）。这些文件夹不会被索引为文章，但会被同步下载以显示文章图片。',
-  notes_cos_prefix: 'COS 存储桶中笔记所在路径前缀（如 notes/blog）。留空表示从桶根目录同步。',
-  notes_github_prefix: 'GitHub 仓库内笔记所在子目录（如 blog/online）。留空表示从仓库根目录拉取。',
-  github_token: 'GitHub Personal Access Token，私有仓库拉取必需。建议使用 fine-grained token 并仅授予仓库只读权限。',
-  git_proxy: 'git clone/pull 使用的 HTTP 代理（如 http://172.17.0.1:7890）。需先在宿主机开启 allow-lan，留空表示直连。',
-  git_accelerator: 'GitHub 加速镜像前缀（如 https://ghfast.top）。国内直连不稳定时使用，留空表示不加速。',
-  notify_interval_seconds: '后台扫描未处理反馈并发送邮件的间隔。范围 60~86400 秒，默认 1800（30 分钟）。',
-  notify_enabled: '开启后，有新的未处理用户反馈时自动发邮件提醒。需先配置下方邮件通知方式。',
-  sync_notify_enabled: '开启后，远程拉取、索引重建或 Quartz 构建失败时自动发邮件告警。需先配置下方邮件通知方式。',
-  mail_port: 'SMTP 服务器端口，SSL 通常 465，TLS 通常 587。默认 465。',
-  reindex_token: '调用 /api/reindex 重建索引时所需的鉴权 Token。建议设置为长随机串，留空则禁用该接口。',
-  admin_token: '访问本管理后台及 /admin/api 接口所需的 Token。建议设置为长随机串，泄露后任何人可改配置。',
-  allowed_origins: 'CORS 允许的来源，逗号分隔（如 https://blog.com,http://localhost）。限制只有这些域名的前端可调用 API。',
+  embedding_text_type: { 'en-US': 'Text type for embedding: document (doc retrieval, default) or query (query vectorization). Keep default document unless customizing retrieval.', 'zh-CN': '嵌入时文本用途类型：document（文档检索，默认）或 query（查询向量化）。建议保持默认 document，仅在自定义检索流程时调整。', 'ja-JP': '埋め込みテキストタイプ：document（ドキュメント検索、デフォルト）または query（クエリベクトル化）。デフォルト document 推奨、カスタム検索時のみ調整。' },
+  rerank_top_n: { 'en-US': 'Number of docs kept after reranking. Smaller = more concise but may miss relevant content. Suggest 3~5, empty = keep all recalled.', 'zh-CN': '重排序后保留的文档条数。值越小越精炼但可能漏掉相关内容，建议 3~5，留空则保留全部召回结果。', 'ja-JP': 'リランキング後の保持ドキュメント数。小さいほど精密だが関連内容を漏れる可能性。3~5推奨、空=全保持。' },
+  rerank_instruct: { 'en-US': 'Instruction text for the rerank model (e.g. "Rank blog posts by relevance"). Some models support it; leave empty for default.', 'zh-CN': '给重排序模型的指令文本（如「按相关性排序博客文章」）。部分模型支持，可留空走默认行为。', 'ja-JP': 'リランキングモデルへの指示テキスト（例「ブログ記事を関連性で並べ替え」）。一部モデル対応、空でデフォルト。' },
+  similarity_top_k: { 'en-US': 'Number of docs recalled by vector search, then cited by LLM. Larger = more complete but slower. Suggest 5 (default).', 'zh-CN': '向量检索召回的文档数量，再交给 LLM 引用。值大召回全但耗时高，建议 5（默认）。', 'ja-JP': 'ベクトル検索のリコール数、LLMが引用。大きいほど網羅的だが遅い。5推奨（デフォルト）。' },
+  llm_mock: { 'en-US': 'When on, LLM is not actually called; returns mock responses. For debugging only. Keep off in production (default off).', 'zh-CN': '开启后 LLM 不真实调用，返回模拟响应。仅用于联调调试，生产环境务必关闭（默认关闭）。', 'ja-JP': 'オン時 LLM 実呼び出しなし、モック応答を返す。デバッグ専用。本番ではオフ（デフォルトオフ）。' },
+  embedding_batch_size: { 'en-US': 'Batch size per embedding request. Larger = faster but easier to hit rate limits. Keep default 10.', 'zh-CN': '嵌入向量单次请求批量。值大速度快但易触发限流，建议保持默认 10。', 'ja-JP': '埋め込み1リクエストのバッチサイズ。大きいほど高速だがレート制限に注意。デフォルト10推奨。' },
+  notes_assets_folders: { 'en-US': 'Comma-separated asset folder names (default assets). Not indexed as articles, but synced to display article images.', 'zh-CN': '逗号分隔的附件文件夹名（默认 assets）。这些文件夹不会被索引为文章，但会被同步下载以显示文章图片。', 'ja-JP': 'カンマ区切りの添付フォルダ名（デフォルト assets）。記事として索引化されないが、画像表示のため同期される。' },
+  notes_cos_prefix: { 'en-US': 'Path prefix of notes in the COS bucket (e.g. notes/blog). Empty = sync from bucket root.', 'zh-CN': 'COS 存储桶中笔记所在路径前缀（如 notes/blog）。留空表示从桶根目录同步。', 'ja-JP': 'COSバケット内ノートのパスプレフィックス（例 notes/blog）。空=バケットルートから同期。' },
+  notes_github_prefix: { 'en-US': 'Subdirectory of notes in the GitHub repo (e.g. blog/online). Empty = pull from repo root.', 'zh-CN': 'GitHub 仓库内笔记所在子目录（如 blog/online）。留空表示从仓库根目录拉取。', 'ja-JP': 'GitHubリポジトリ内ノートのサブディレクトリ（例 blog/online）。空=リポジトリルートから取得。' },
+  github_token: { 'en-US': 'GitHub Personal Access Token, required for private repos. Use a fine-grained token with read-only repo access.', 'zh-CN': 'GitHub Personal Access Token，私有仓库拉取必需。建议使用 fine-grained token 并仅授予仓库只读权限。', 'ja-JP': 'GitHub PAT、プライベートリポジトリ取得に必須。fine-grained token・読み取り専用推奨。' },
+  git_proxy: { 'en-US': 'HTTP proxy for git clone/pull (e.g. http://172.17.0.1:7890). Requires allow-lan on host. Empty = direct.', 'zh-CN': 'git clone/pull 使用的 HTTP 代理（如 http://172.17.0.1:7890）。需先在宿主机开启 allow-lan，留空表示直连。', 'ja-JP': 'git clone/pull の HTTPプロキシ（例 http://172.17.0.1:7890）。ホストで allow-lan 必要、空=直接接続。' },
+  git_accelerator: { 'en-US': 'GitHub mirror accelerator prefix (e.g. https://ghfast.top). Use when direct access is unstable. Empty = no acceleration.', 'zh-CN': 'GitHub 加速镜像前缀（如 https://ghfast.top）。国内直连不稳定时使用，留空表示不加速。', 'ja-JP': 'GitHub加速ミラープレフィックス（例 https://ghfast.top）。直接接続不安定時に使用、空=加速なし。' },
+  notify_interval_seconds: { 'en-US': 'Interval to scan pending feedback and send emails. Range 60~86400s, default 1800 (30 min).', 'zh-CN': '后台扫描未处理反馈并发送邮件的间隔。范围 60~86400 秒，默认 1800（30 分钟）。', 'ja-JP': '未処理フィードバックをスキャンしてメール送信する間隔。範囲60~86400秒、デフォルト1800（30分）。' },
+  notify_enabled: { 'en-US': 'When on, auto email on new pending feedback. Configure mail settings below first.', 'zh-CN': '开启后，有新的未处理用户反馈时自动发邮件提醒。需先配置下方邮件通知方式。', 'ja-JP': 'オン時、新規未処理フィードバックで自動メール通知。下記メール設定を先に設定。' },
+  sync_notify_enabled: { 'en-US': 'When on, auto email on remote pull / reindex / Quartz build failure. Configure mail below first.', 'zh-CN': '开启后，远程拉取、索引重建或 Quartz 构建失败时自动发邮件告警。需先配置下方邮件通知方式。', 'ja-JP': 'オン時、リモート取得・索引再構築・Quartz構築失敗で自動メール通知。下記メール設定を先に設定。' },
+  mail_port: { 'en-US': 'SMTP server port, 465 for SSL, 587 for TLS. Default 465.', 'zh-CN': 'SMTP 服务器端口，SSL 通常 465，TLS 通常 587。默认 465。', 'ja-JP': 'SMTPサーバーポート、SSL通常465、TLS通常587。デフォルト465。' },
+  reindex_token: { 'en-US': 'Auth token for /api/reindex. Use a long random string; empty disables the endpoint.', 'zh-CN': '调用 /api/reindex 重建索引时所需的鉴权 Token。建议设置为长随机串，留空则禁用该接口。', 'ja-JP': '/api/reindex の認証トークン。長いランダム文字列推奨、空=エンドポイント無効化。' },
+  admin_token: { 'en-US': 'Token required to access this admin panel and /admin/api. Use a long random string; leak lets anyone edit config.', 'zh-CN': '访问本管理后台及 /admin/api 接口所需的 Token。建议设置为长随机串，泄露后任何人可改配置。', 'ja-JP': '本管理パネルと /admin/api のアクセスに必要なトークン。長いランダム文字列推奨、漏洩で誰でも設定変更可能。' },
+  allowed_origins: { 'en-US': 'CORS allowed origins, comma-separated (e.g. https://blog.com,http://localhost). Only these domains can call the API.', 'zh-CN': 'CORS 允许的来源，逗号分隔（如 https://blog.com,http://localhost）。限制只有这些域名的前端可调用 API。', 'ja-JP': 'CORS許可オリジン、カンマ区切り（例 https://blog.com,http://localhost）。これらのドメインのみAPI呼び出し可能。' },
 };
 
 // 生成帮助图标 HTML（lucide circle-question-mark）
 function helpIcon(key) {
-  const tip = fieldHints[key];
-  if (!tip) return '';
-  return `<span class="help-icon" data-tip="${esc(tip)}" tabindex="0" aria-label="字段说明">
+  const e = fieldHints[key];
+  if (!e) return '';
+  const tip = e[adminLocale] || e['zh-CN'];
+  return `<span class="help-icon" data-tip="${esc(tip)}" tabindex="0" aria-label="${t('字段说明')}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
@@ -1333,9 +1837,24 @@ function helpIcon(key) {
   </span>`;
 }
 
-// 取字段可读标签，无映射时回退到原始 key
+// 直接接受说明文本生成帮助图标(appearance tab 字段说明用)。
+// tip 按当前 adminLocale 用 t() 翻译;无映射回退原文。仅有说明文字的字段才调用。
+function helpIconTip(tip) {
+  if (!tip) return '';
+  return `<span class="help-icon" data-tip="${esc(t(tip))}" tabindex="0" aria-label="${t('字段说明')}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.1 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <path d="M12 17h.01"/>
+    </svg>
+  </span>`;
+}
+
+// 取字段可读标签,按当前 adminLocale 返回;无映射回退原始 key
 function fieldLabel(key) {
-  return fieldLabels[key] || key;
+  const e = fieldLabels[key];
+  if (!e) return key;
+  return e[adminLocale] || e['zh-CN'] || key;
 }
 
 // 配置数据全局缓存：首次进入任一配置 tab 才 fetch，后续切换直接用缓存渲染，避免每次切换都显示加载圆圈
@@ -1427,7 +1946,7 @@ function renderNotifyTab(content, containerId, items) {
     const value = f.value;
     const sensitiveEmpty = isSensitive && !String(value).trim();
     return `<div class="config-item">
-      <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+      <label class="config-label">${fieldLabel(f.key)}${isSensitive ? `<span class="sensitive-badge">${t('敏感')}</span>` : ''}${helpIcon(f.key)}</label>
       <input class="config-input${isSensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text"
         data-key="${esc(f.key)}" data-sensitive="${isSensitive}"
         data-original="${isSensitive ? esc(String(value)) : ''}"
@@ -1465,6 +1984,7 @@ function renderNotifyTab(content, containerId, items) {
       <span class="save-hint">修改后即时生效</span>
     </div>
   `;
+  applyI18n();
 }
 
 function renderTab(tab, containerId, items) {
@@ -1501,24 +2021,22 @@ function renderTab(tab, containerId, items) {
 
       if (f.key === 'embedding_provider') {
         html += `<div class="config-item">
-          <label class="config-label">${fieldLabel(f.key)}${helpIcon(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${helpIconTip('百炼用 text-embedding-v4，OpenAI 用 text-embedding-3 系列')}</label>
           <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
             <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
             <option value="openai" ${value === 'openai' ? 'selected' : ''}>openai（OpenAI 兼容）</option>
           </select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">百炼用 text-embedding-v4，OpenAI 用 text-embedding-3 系列</div>
         </div>`;
       } else if (f.key === 'rerank_provider') {
         html += `<div class="config-item">
-          <label class="config-label">${fieldLabel(f.key)}${helpIcon(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${helpIconTip('当前仅内置百炼 rerank（qwen3-rerank）')}</label>
           <select class="config-input" data-key="${esc(f.key)}" style="cursor:pointer">
             <option value="dashscope" ${value === 'dashscope' ? 'selected' : ''}>dashscope（阿里云百炼）</option>
           </select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">当前仅内置百炼 rerank（qwen3-rerank）</div>
         </div>`;
       } else if (inputType === 'checkbox') {
         html += `<div class="config-item">
-          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? `<span class="sensitive-badge">${t('敏感')}</span>` : ''}${helpIcon(f.key)}</label>
           <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
             <label class="switch">
               <input type="checkbox" data-key="${esc(f.key)}" ${value ? 'checked' : ''}>
@@ -1530,7 +2048,7 @@ function renderTab(tab, containerId, items) {
       } else {
         const sensitiveEmpty = isSensitive && !String(value).trim();
         html += `<div class="config-item">
-          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(f.key)}</label>
+          <label class="config-label">${fieldLabel(f.key)}${isSensitive ? `<span class="sensitive-badge">${t('敏感')}</span>` : ''}${helpIcon(f.key)}</label>
           <input class="config-input${isSensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text"
             data-key="${esc(f.key)}" data-sensitive="${isSensitive}"
             data-original="${isSensitive ? esc(String(value)) : ''}"
@@ -1549,6 +2067,7 @@ function renderTab(tab, containerId, items) {
   </div>`;
 
   content.innerHTML = html;
+  applyI18n();
 }
 
 async function saveTabConfig(containerId) {
@@ -1762,7 +2281,7 @@ function renderSync(status, config) {
     const label = debounceLabels[key];
     const sensitiveEmpty = sensitive && !String(val).trim();
     configHtml += `<div class="config-item">
-      <label class="config-label">${esc(label)}${sensitive ? '<span class="sensitive-badge">敏感</span>' : ''}${helpIcon(key)}</label>
+      <label class="config-label">${esc(label)}${sensitive ? `<span class="sensitive-badge">${t('敏感')}</span>` : ''}${helpIcon(key)}</label>
       <input class="config-input${sensitive ? ' sensitive' : ''}${sensitiveEmpty ? ' is-empty' : ''}" type="text" data-key="${key}" data-sensitive="${sensitive}"
         data-original="${sensitive ? esc(String(val)) : ''}"
         value="${esc(String(val))}" placeholder="${sensitive ? (sensitiveEmpty ? '未填写，点击输入' : '输入新值覆盖') : ''}">
@@ -1940,8 +2459,9 @@ async function loadGitHubWorkflow() {
     const data = await res.json();
     renderGitHubWorkflow(data);
   } catch (e) {
-    el.innerHTML = `<div class="error-msg">加载失败：${esc(e.message)}</div>`;
+    el.innerHTML = `<div class="error-msg">${t('加载失败')}：${esc(e.message)}</div>`;
   }
+  applyI18n();
 }
 
 function renderGitHubWorkflow(data) {
@@ -2021,26 +2541,26 @@ const BUILTIN_ICONS = {
 // 字体预设:跨平台 fallback,Windows 与 macOS 字体名都列入,浏览器自动选用本机可用者。
 // 留空=用主题默认字体;含远程字体的预设(如 LXGW)由前台运行时 @import CDN 自动加载。
 const FONT_PRESETS = [
-  { label: '— 选择预设 —', value: '' },
-  { label: '宋体', value: '"Songti SC","SimSun","宋体",serif' },
-  { label: '黑体', value: '"Heiti SC","SimHei","黑体",sans-serif' },
-  { label: '楷体', value: '"Kaiti SC","KaiTi","楷体",serif' },
-  { label: '苹方/雅黑', value: '"PingFang SC","Microsoft YaHei",sans-serif' },
-  { label: '霞鹜文楷屏幕版', value: 'LXGW WenKai Screen' },
-  { label: '无衬线', value: 'system-ui,-apple-system,"Segoe UI",sans-serif' },
-  { label: '衬线', value: 'Georgia,"Times New Roman",serif' },
-  { label: '等宽', value: '"JetBrains Mono","Fira Code",monospace' },
+  { label: { 'en-US': '— Select preset —', 'zh-CN': '— 选择预设 —', 'ja-JP': '— プリセット選択 —' }, value: '' },
+  { label: { 'en-US': 'Songti', 'zh-CN': '宋体', 'ja-JP': '宋体' }, value: '"Songti SC","SimSun","宋体",serif' },
+  { label: { 'en-US': 'Heiti', 'zh-CN': '黑体', 'ja-JP': '黒体' }, value: '"Heiti SC","SimHei","黑体",sans-serif' },
+  { label: { 'en-US': 'Kaiti', 'zh-CN': '楷体', 'ja-JP': '楷書' }, value: '"Kaiti SC","KaiTi","楷体",serif' },
+  { label: { 'en-US': 'PingFang/YaHei', 'zh-CN': '苹方/雅黑', 'ja-JP': '苹方/雅黒' }, value: '"PingFang SC","Microsoft YaHei",sans-serif' },
+  { label: { 'en-US': 'LXGW WenKai Screen', 'zh-CN': '霞鹜文楷屏幕版', 'ja-JP': '霞鹜文楷屏幕版' }, value: 'LXGW WenKai Screen' },
+  { label: { 'en-US': 'Sans-serif', 'zh-CN': '无衬线', 'ja-JP': 'サンセリフ' }, value: 'system-ui,-apple-system,"Segoe UI",sans-serif' },
+  { label: { 'en-US': 'Serif', 'zh-CN': '衬线', 'ja-JP': 'セリフ' }, value: 'Georgia,"Times New Roman",serif' },
+  { label: { 'en-US': 'Monospace', 'zh-CN': '等宽', 'ja-JP': '等幅' }, value: '"JetBrains Mono","Fira Code",monospace' },
 ];
 
 // 签名字体预设:作用于站点标题(.page-title),独立于正文字体。
 // 默认值与后端 DEFAULT_TITLE_FONT 一致,跨平台 fallback。
 const TITLE_FONT_PRESETS = [
-  { label: '— 跟随默认 —', value: '' },
-  { label: '手写(macOS/Win)', value: "'HanziPen SC','HanziPenSC-W3','HanziPenSC-W5','Kaiti SC','Ink Free',cursive" },
-  { label: '霞鹜文楷屏幕版', value: 'LXGW WenKai Screen' },
-  { label: '楷体', value: '"Kaiti SC","KaiTi","楷体",serif' },
-  { label: '苹方/雅黑', value: '"PingFang SC","Microsoft YaHei",sans-serif' },
-  { label: '宋体', value: '"Songti SC","SimSun","宋体",serif' },
+  { label: { 'en-US': '— Follow default —', 'zh-CN': '— 跟随默认 —', 'ja-JP': '— デフォルト —' }, value: '' },
+  { label: { 'en-US': 'Handwriting (macOS/Win)', 'zh-CN': '手写(macOS/Win)', 'ja-JP': '手書き(macOS/Win)' }, value: "'HanziPen SC','HanziPenSC-W3','HanziPenSC-W5','Kaiti SC','Ink Free',cursive" },
+  { label: { 'en-US': 'LXGW WenKai Screen', 'zh-CN': '霞鹜文楷屏幕版', 'ja-JP': '霞鹜文楷屏幕版' }, value: 'LXGW WenKai Screen' },
+  { label: { 'en-US': 'Kaiti', 'zh-CN': '楷体', 'ja-JP': '楷書' }, value: '"Kaiti SC","KaiTi","楷体",serif' },
+  { label: { 'en-US': 'PingFang/YaHei', 'zh-CN': '苹方/雅黑', 'ja-JP': '苹方/雅黒' }, value: '"PingFang SC","Microsoft YaHei",sans-serif' },
+  { label: { 'en-US': 'Songti', 'zh-CN': '宋体', 'ja-JP': '宋体' }, value: '"Songti SC","SimSun","宋体",serif' },
 ];
 
 const MAX_SOCIAL_LINKS = 8;
@@ -2080,7 +2600,14 @@ async function loadAppearance() {
         dark: p.dark || '',
       })),
       active_background_id: cfg.active_background_id || '',
+      blog_locale: cfg.blog_locale || 'en-US',
+      admin_locale: cfg.admin_locale || 'en-US',
     };
+    // 后台 admin_locale 以后端为准:其他端改过则同步本地(并触发 i18n 重应用)
+    if (cfg.admin_locale && cfg.admin_locale !== adminLocale) {
+      adminLocale = cfg.admin_locale;
+      sessionStorage.setItem('admin_locale', adminLocale);
+    }
     editingBgIdx = -1;
     renderAppearance();
     triggerFade(content);
@@ -2116,21 +2643,40 @@ function renderAppearance() {
   // esc() 不转义双引号,这里手动转义双引号为 &quot;。
   const escAttr = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const fontPresetOpts = FONT_PRESETS.map(p =>
-    `<option value="${escAttr(p.value)}">${esc(p.label)}</option>`
+    `<option value="${escAttr(p.value)}">${esc(p.label[adminLocale] || p.label['zh-CN'])}</option>`
   ).join('');
 
   const titleFontPresetOpts = TITLE_FONT_PRESETS.map(p =>
-    `<option value="${escAttr(p.value)}">${esc(p.label)}</option>`
+    `<option value="${escAttr(p.value)}">${esc(p.label[adminLocale] || p.label['zh-CN'])}</option>`
   ).join('');
 
   content.innerHTML = `
     <div class="config-section">
+      <div class="config-section-title">语言设置</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">博客界面语言</label>
+          <select class="config-input" id="appearanceBlogLocale" style="cursor:pointer" onchange="appearanceState.blog_locale = this.value">
+            ${SUPPORTED_LOCALES.map(l => `<option value="${l.value}" ${l.value === s.blog_locale ? 'selected' : ''}>${l.label}</option>`).join('')}
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">博客语言切换需重建 Quartz,保存后自动触发(约 30-60 秒)</div>
+        </div>
+        <div class="config-item">
+          <label class="config-label">管理界面语言</label>
+          <select class="config-input" id="appearanceAdminLocale" style="cursor:pointer" onchange="onAdminLocaleChange(this.value)">
+            ${SUPPORTED_LOCALES.map(l => `<option value="${l.value}" ${l.value === s.admin_locale ? 'selected' : ''}>${l.label}</option>`).join('')}
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">管理语言即时生效</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
       <div class="config-section-title">站点标题</div>
       <div class="config-grid">
         <div class="config-item">
-          <label class="config-label">标题文字</label>
+          <label class="config-label">标题文字${helpIconTip('显示在博客左上角站点标题位置,留空默认 "My Blog"')}</label>
           <input class="config-input" type="text" id="appearanceTitleText" value="${escAttr(s.title_text)}" placeholder="My Blog" oninput="appearanceState.title_text = this.value">
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">显示在博客左上角站点标题位置,留空默认 "My Blog"</div>
         </div>
       </div>
     </div>
@@ -2139,14 +2685,12 @@ function renderAppearance() {
       <div class="config-section-title">字体设置</div>
       <div class="config-grid">
         <div class="config-item">
-          <label class="config-label">预设字体</label>
+          <label class="config-label">预设字体${helpIconTip('选择预设会回填到自定义框,可再微调')}</label>
           <select class="config-input" id="appearanceFontPreset" style="cursor:pointer" onchange="onFontPresetChange(this.value)">${fontPresetOpts}</select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">选择预设会回填到自定义框,可再微调</div>
         </div>
         <div class="config-item">
-          <label class="config-label">自定义 font-family</label>
+          <label class="config-label">自定义 font-family${helpIconTip('留空=用主题默认字体;直接写 CSS font-family 值')}</label>
           <input class="config-input" type="text" id="appearanceFontCustom" value="${escAttr(s.font_family)}" placeholder='如 "Source Han Sans SC", sans-serif' oninput="appearanceState.font_family = this.value">
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">留空=用主题默认字体;直接写 CSS font-family 值</div>
         </div>
       </div>
     </div>
@@ -2155,14 +2699,12 @@ function renderAppearance() {
       <div class="config-section-title">签名字体(站点标题字体)</div>
       <div class="config-grid">
         <div class="config-item">
-          <label class="config-label">预设签名字体</label>
+          <label class="config-label">预设签名字体${helpIconTip('作用于站点标题,独立于正文字体;留空跟随默认手写体')}</label>
           <select class="config-input" id="appearanceTitleFontPreset" style="cursor:pointer" onchange="onTitleFontPresetChange(this.value)">${titleFontPresetOpts}</select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">作用于站点标题,独立于正文字体;留空跟随默认手写体</div>
         </div>
         <div class="config-item">
-          <label class="config-label">自定义签名 font-family</label>
+          <label class="config-label">自定义签名 font-family${helpIconTip('直接写 CSS font-family 值,留空使用默认跨平台手写体')}</label>
           <input class="config-input" type="text" id="appearanceTitleFontCustom" value="${escAttr(s.title_font_family)}" placeholder="留空=跟随默认" oninput="appearanceState.title_font_family = this.value">
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">直接写 CSS font-family 值,留空使用默认跨平台手写体</div>
         </div>
       </div>
     </div>
@@ -2196,9 +2738,8 @@ function renderAppearance() {
           <div id="appearanceAvatarShapeGroup">${shapeBtnGroup(s.avatar_shape, "setAvatarShape('{v}')")}</div>
         </div>
         <div class="config-item">
-          <label class="config-label">点击头像跳转链接</label>
+          <label class="config-label">点击头像跳转链接${helpIconTip('填 http(s) 链接,留空则头像不可点击')}</label>
           <input class="config-input" type="text" value="${esc(s.avatar_link)}" placeholder="留空=点击无跳转" oninput="appearanceState.avatar_link = this.value">
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">填 http(s) 链接,留空则头像不可点击</div>
         </div>
       </div>
     </div>
@@ -2217,12 +2758,11 @@ function renderAppearance() {
       <div class="config-section-title">背景颜色 (深色/浅色预设)</div>
       <div class="config-grid">
         <div class="config-item">
-          <label class="config-label">当前应用</label>
+          <label class="config-label">当前应用${helpIconTip('选择一个预设应用到博客背景,同时只生效一个')}</label>
           <select class="config-input" id="appearanceBgActive" style="cursor:pointer" onchange="applyBackgroundPreset(this.value)">
             <option value="">不应用(Quartz 默认背景)</option>
             ${s.background_presets.map(p => `<option value="${esc(p.id)}" ${p.id === s.active_background_id ? 'selected' : ''}>${esc(p.name) || '未命名预设'}</option>`).join('')}
           </select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">选择一个预设应用到博客背景,同时只生效一个</div>
         </div>
       </div>
       <div id="appearanceBgList"></div>
@@ -2380,11 +2920,13 @@ function renderSocialPreview() {
   const links = appearanceState.social_links;
   if (!links.length) {
     row.innerHTML = `<span style="font-size:.78rem;color:var(--text-muted)">暂无社交链接,点击下方"添加"按钮新增</span>`;
+    applyI18n();
     return;
   }
   row.innerHTML = links.map(l =>
     `<span class="sp-item ${l.shape || 'circle'}" title="${esc(l.name)}">${socialIconHtml(l)}</span>`
   ).join('');
+  applyI18n();
 }
 
 function renderSocialList() {
@@ -2423,6 +2965,7 @@ function renderSocialList() {
       </div>
     </div>`;
   }).join('');
+  applyI18n();
 }
 
 function updateAddSocialBtn() {
@@ -2450,6 +2993,7 @@ function renderBackgroundList() {
   const presets = appearanceState.background_presets;
   if (!presets.length) {
     wrap.innerHTML = `<div style="font-size:.78rem;color:var(--text-muted);padding:8px 0">暂无预设,在下方填写名称与颜色后点击"保存为新预设"</div>`;
+    applyI18n();
     return;
   }
   wrap.innerHTML = presets.map((p, idx) => {
@@ -2512,6 +3056,7 @@ function updateBackgroundControls() {
     btn.disabled = n >= 10;
     btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 保存为新预设 (${n}/10)`;
   }
+  applyI18n();
 }
 
 function applyBackgroundPreset(id) {
@@ -2736,6 +3281,13 @@ async function saveAppearance() {
   }
 }
 
+// 管理语言切换:更新 state + 即时切换 UI(setAdminLocale 会重渲染当前 tab 覆盖动态文案)
+function onAdminLocaleChange(locale) {
+  if (!appearanceState) return;
+  appearanceState.admin_locale = locale;
+  setAdminLocale(locale);
+}
+
 // ===== Utils =====
 function esc(s) {
   const d = document.createElement('div');
@@ -2753,12 +3305,12 @@ function formatTime(ts) {
 
 let toastTimer;
 function showToast(msg, type = 'info') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = `toast ${type}`;
-  requestAnimationFrame(() => t.classList.add('show'));
+  const el = document.getElementById('toast');
+  el.textContent = t(msg);
+  el.className = `toast ${type}`;
+  requestAnimationFrame(() => el.classList.add('show'));
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
 // ===== Init =====
@@ -2782,6 +3334,9 @@ function showToast(msg, type = 'info') {
   document.getElementById('loginOverlay').classList.remove('hidden');
   document.getElementById('loginInput').focus();
 })();
+
+// 初始化静态文案 i18n(登录页/sidebar/tab 标题);动态 tab 由 switchTab 的 p.finally(applyI18n) 覆盖
+applyI18n();
 </script>
 </body>
 </html>

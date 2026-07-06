@@ -35,6 +35,23 @@ else
     mkdir -p /quartz/content
 fi
 
+# 运行时注入博客语言:从 data_store/appearance.json 读 blog_locale,覆盖 quartz.config.yaml 的 locale。
+# quartz.config.yaml 在镜像 build 阶段 COPY 进来(locale 固定),rebuild 不重读;
+# 故每次构建前根据 appearance.json 单一数据源 sed 改 locale,使语言切换免重建镜像。
+APPEARANCE_FILE="/data_store/appearance.json"
+if [ -f "$APPEARANCE_FILE" ]; then
+  BLOG_LOCALE=$(node -e "try{console.log(require('$APPEARANCE_FILE').blog_locale||'en-US')}catch{console.log('en-US')}" 2>/dev/null || echo "en-US")
+else
+  BLOG_LOCALE="en-US"
+fi
+# 白名单校验,防 appearance.json 的 locale 字段被篡改注入 sed
+case "$BLOG_LOCALE" in
+  en-US|zh-CN|ja-JP) ;;
+  *) BLOG_LOCALE="en-US" ;;
+esac
+sed -i "s/^  locale: .*/  locale: ${BLOG_LOCALE}/" /quartz/quartz.config.yaml
+echo "[entrypoint] 博客语言 locale=${BLOG_LOCALE}"
+
 echo "[entrypoint] 开始构建 Quartz → $OUTPUT_DIR"
 # Quartz 构建前会尝试 rmdir 输出目录；$OUTPUT_DIR 是挂载点不可删，
 # 故先构建到内部目录，再把产物同步进挂载卷（清空卷内容而非删卷本身）。
