@@ -14,6 +14,7 @@ from .sync_state import read_sync_state, write_sync_state
 from .database import get_connection
 from .models import SyncStatusResponse, WebhookResponse
 from .config import get_settings
+from . import appearance as appearance_mod
 import logging
 
 logger = logging.getLogger("admin")
@@ -23,6 +24,11 @@ router = APIRouter(prefix="/admin/api", tags=["admin"])
 
 class FeedbackStatusUpdate(BaseModel):
     new_status: Literal["pending", "resolved", "dismissed"]
+
+
+class AppearanceUploadRequest(BaseModel):
+    image: str  # data URL,如 data:image/png;base64,xxxx
+    kind: Literal["avatar", "favicon", "icon"] = "icon"
 
 
 def _verify_admin(x_admin_token: str | None) -> None:
@@ -420,3 +426,41 @@ def upsert_github_workflow(
     except Exception as e:
         logger.exception("创建 GitHub 工作流失败")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"操作失败: {e}")
+
+
+# ============================ 外观设置 ============================ #
+
+
+@router.get("/appearance")
+def get_appearance_config(
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """获取外观配置(文件名转 URL,便于后台预览)"""
+    _verify_admin(x_admin_token)
+    return appearance_mod.get_appearance_public()
+
+
+@router.put("/appearance")
+def update_appearance_config(
+    body: dict[str, Any],
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """保存外观配置(校验社交链接数量、shape 枚举等)"""
+    _verify_admin(x_admin_token)
+    saved = appearance_mod.save_appearance(body)
+    return {"status": "ok", "appearance": saved, "message": "外观配置已生效,刷新博客可见"}
+
+
+@router.post("/appearance/upload")
+def upload_appearance_asset(
+    body: AppearanceUploadRequest,
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """上传图片(data URL)到 data/assets/,返回公开 URL"""
+    _verify_admin(x_admin_token)
+    filename = appearance_mod.save_data_url_asset(body.image)
+    return {
+        "status": "ok",
+        "filename": filename,
+        "url": appearance_mod.ASSET_URL_PREFIX + filename,
+    }

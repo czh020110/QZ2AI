@@ -13,6 +13,8 @@ data/logs/*
 data/docstore.json
 data/blog.db
 data/sync-pending.json
+data/appearance.json
+data/assets/*
 !data/chroma/.gitkeep
 !data/logs/.gitkeep
 

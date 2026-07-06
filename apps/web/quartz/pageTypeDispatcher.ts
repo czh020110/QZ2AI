@@ -4,9 +4,11 @@ import type { BuildCtx } from "./util/ctx"
 import type { FullPageLayout } from "./cfg"
 import AIChatWidget from "./components/AIChatWidget"
 import FontOverride from "./components/FontOverride"
+import AppearanceInjector from "./components/AppearanceInjector"
 
 const chatComponent = AIChatWidget()
 const fontOverrideComponent = FontOverride()
+const appearanceComponent = AppearanceInjector()
 
 export const PageTypeDispatcher: QuartzEmitterPlugin<any> = (userOpts) => {
   const upstream = UpstreamPageTypeDispatcher(userOpts)
@@ -15,7 +17,7 @@ export const PageTypeDispatcher: QuartzEmitterPlugin<any> = (userOpts) => {
     ...upstream,
     getQuartzComponents(ctx: BuildCtx) {
       const components = upstream.getQuartzComponents?.(ctx) ?? []
-      return [...components, chatComponent, fontOverrideComponent]
+      return [...components, chatComponent, fontOverrideComponent, appearanceComponent]
     },
   }
 }

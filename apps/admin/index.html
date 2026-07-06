@@ -762,7 +762,97 @@
 
   /* hidden */
   .hidden { display: none !important; }
+
+  /* ===== 外观设置 ===== */
+  /* select 与 input 高度统一:去除原生外观,显式 line-height 对齐 */
+  #tab-appearance select.config-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    line-height: 1.4;
+    /* 与 .config-input 的 padding:9px 12px 一致,右侧留出下拉箭头空间 */
+    padding: 9px 30px 9px 12px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+  .shape-btn-group { display: inline-flex; gap: 6px; }
+  .shape-btn {
+    padding: 7px 12px; border: 1px solid var(--border); background: var(--bg-input);
+    color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer;
+    font-size: .76rem; transition: all var(--transition); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .shape-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+  .shape-btn.active { background: var(--text-primary); color: var(--bg-deep); border-color: var(--text-primary); }
+  .shape-btn .shape-dot { width: 12px; height: 12px; background: currentColor; flex-shrink: 0; }
+  .shape-btn .shape-dot.circle { border-radius: 50%; }
+  .shape-btn .shape-dot.square { border-radius: 0; }
+  .shape-btn .shape-dot.rounded { border-radius: 3px; }
+
+  .upload-btn {
+    padding: 7px 14px; border: 1px dashed var(--border); background: transparent;
+    color: var(--text-secondary); border-radius: var(--radius-sm); cursor: pointer;
+    font-size: .76rem; transition: all var(--transition); font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .upload-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+  .upload-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .preview-img {
+    width: 56px; height: 56px; object-fit: cover; border: 1px solid var(--border);
+    background: var(--bg-input); flex-shrink: 0;
+  }
+  .preview-img.circle { border-radius: 50%; }
+  .preview-img.square { border-radius: 0; }
+  .preview-img.rounded { border-radius: 12px; }
+  .preview-img.favicon { width: 36px; height: 36px; border-radius: 6px; }
+  .preview-img.empty {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: .68rem;
+  }
+
+  .social-link-card {
+    border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;
+    background: var(--bg-input); margin-bottom: 10px;
+  }
+  .social-link-card .slc-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .social-link-card .slc-row:last-child { margin-bottom: 0; }
+  .social-link-card .slc-preview {
+    width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-deep); color: var(--text-secondary); border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .social-link-card .slc-preview.circle { border-radius: 50%; }
+  .social-link-card .slc-preview.square { border-radius: 0; }
+  .social-link-card .slc-preview.rounded { border-radius: 8px; }
+  .social-link-card .slc-preview svg, .social-link-card .slc-preview img { width: 18px; height: 18px; }
+
+  .social-preview-row {
+    display: flex; gap: 10px; padding: 14px; background: var(--bg-input);
+    border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 12px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .social-preview-row .sp-item {
+    width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-deep); color: var(--text-secondary); border: 1px solid var(--border);
+  }
+  .social-preview-row .sp-item.circle { border-radius: 50%; }
+  .social-preview-row .sp-item.square { border-radius: 0; }
+  .social-preview-row .sp-item.rounded { border-radius: 8px; }
+  .social-preview-row .sp-item svg, .social-preview-row .sp-item img { width: 20px; height: 20px; }
   </style>
+  <script>
+  // 管理后台标签页 favicon:复用前台 appearance 配置,尽早注入避免标签页空白
+  fetch('/api/appearance').then(r => r.ok ? r.json() : null).then(c => {
+    if (c && c.favicon_url) {
+      document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"]').forEach(l => l.remove())
+      const l = document.createElement('link')
+      l.rel = 'icon'
+      l.href = c.favicon_url
+      document.head.appendChild(l)
+    }
+  }).catch(() => {})
+  </script>
 </head>
 <body>
 
@@ -807,6 +897,10 @@
     <div class="nav-item" data-tab="security" onclick="switchTab('security')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       安全设置
+    </div>
+    <div class="nav-item" data-tab="appearance" onclick="switchTab('appearance')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+      外观设置
     </div>
   </nav>
   <div class="sidebar-footer">
@@ -878,6 +972,17 @@
       <p>Token 与 CORS 安全配置</p>
     </div>
     <div class="page-content" id="securityContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Appearance Tab -->
+  <div id="tab-appearance" class="hidden">
+    <div class="page-header">
+      <h2>外观设置</h2>
+      <p>字体、网站图标、头像与社交联系方式(保存后刷新博客可见)</p>
+    </div>
+    <div class="page-content" id="appearanceContent">
       <div class="spinner"></div>
     </div>
   </div>
@@ -962,12 +1067,14 @@ function switchTab(tab) {
   document.getElementById('tab-notify').classList.toggle('hidden', tab !== 'notify');
   document.getElementById('tab-security').classList.toggle('hidden', tab !== 'security');
   document.getElementById('tab-sync').classList.toggle('hidden', tab !== 'sync');
+  document.getElementById('tab-appearance').classList.toggle('hidden', tab !== 'appearance');
   if (tab === 'feedback') loadFeedback();
   if (tab === 'model') loadTabConfig('model', 'modelContent');
   if (tab === 'sync-data') loadTabConfig('sync-data', 'syncDataContent');
   if (tab === 'notify') loadTabConfig('notify', 'notifyContent');
   if (tab === 'security') loadTabConfig('security', 'securityContent');
   if (tab === 'sync') loadSync();
+  if (tab === 'appearance') loadAppearance();
 }
 
 // ===== Feedback =====
@@ -1870,6 +1977,496 @@ async function upsertGitHubWorkflow() {
   } catch (e) {
     showToast('操作失败：' + e.message, 'error');
     if (btn) { btn.disabled = false; btn.textContent = '重试'; }
+  }
+}
+
+// ===== Appearance =====
+// 内置社交图标 SVG(与博客前端 appearance.inline.ts 保持一致,用于后台预览)
+const BUILTIN_ICONS = {
+  github: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>`,
+  email: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+  twitter: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`,
+  rss: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>`,
+  linkedin: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.063 2.063 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z"/></svg>`,
+  bilibili: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.658.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.16.107.267.107h4.267c.107 0 .196-.036.267-.107l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893v-7.52c-.017-.765-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773zM8 11.107c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373zm8 0c.373 0 .684.124.933.373.25.249.383.569.4.96v1.173c-.017.391-.15.711-.4.96-.249.25-.56.374-.933.374s-.684-.125-.933-.374c-.25-.249-.383-.569-.4-.96V12.44c.017-.391.15-.711.4-.96.249-.249.56-.373.933-.373z"/></svg>`,
+  zhihu: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.721 0C2.251 0 0 2.25 0 5.719V18.28C0 21.751 2.252 24 5.721 24h12.56C21.751 24 24 21.75 24 18.281V5.72C24 2.249 21.75 0 18.281 0zm1.964 6.078h6.871l-.001 6.355h-2.725v4.027l1.376-.001 1.795 5.213h-2.012l-1.268-3.715h-.349l-1.268 3.715H8.085l1.783-5.213 1.4.001v-4.027H7.685zm13.998.001v9.166l-2.92.001 1.795 5.213-2.012-.001-1.268-3.713h-.351l-1.266 3.714h-2.014l1.795-5.213h-2.92V6.079z"/></svg>`,
+  weibo: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.098 20.323c-3.977.391-7.414-1.406-7.672-4.02-.259-2.609 2.759-5.047 6.74-5.441 3.979-.394 7.413 1.404 7.671 4.018.259 2.6-2.759 5.049-6.737 5.439v.004h-.002zM9.05 17.219c-.384.616-1.208.884-1.829.602-.612-.279-.793-.991-.406-1.593.379-.595 1.176-.861 1.793-.601.622.263.82.972.442 1.592zm1.27-1.627c-.141.237-.449.353-.689.253-.236-.09-.313-.361-.177-.586.138-.227.436-.346.672-.24.239.09.315.36.18.573v.001zm.176-2.719c-1.893-.493-4.033.45-4.857 2.118-.836 1.704-.026 3.591 1.886 4.21 1.983.641 4.318-.327 5.132-2.179.799-1.82-.273-3.654-2.161-4.149zm7.563-1.224c-.346-.105-.57-.18-.405-.615.375-.977.42-1.804.014-2.404-.766-1.138-2.854-1.077-5.262-.014 0 0-.751.331-.567-.27.375-1.217.31-2.227-.27-2.812-1.335-1.346-4.876.045-7.917 3.108C2.179 9.396 1.063 11.373 1.063 13.071c0 3.246 4.164 5.222 8.134 5.222 5.274 0 8.792-3.061 8.792-5.493 0-1.471-1.241-2.305-2.43-2.66l.001-.001zm2.846-4.806c-.585-.65-1.455-.896-2.27-.748l-.459.082c-.405.072-.795-.195-.869-.598-.072-.405.195-.795.6-.867l.459-.083c1.275-.226 2.625.183 3.555 1.215.93 1.032 1.215 2.4.855 3.645l-.129.435c-.119.39-.525.615-.915.495-.39-.119-.615-.525-.495-.915l.131-.435c.214-.81.045-1.703-.563-2.379v.001zm-2.156 1.95c-.285-.315-.704-.435-1.095-.36l-.314.06c-.345.067-.681-.165-.748-.51-.067-.345.165-.681.51-.748l.314-.06c.705-.135 1.455.105 1.965.66.51.555.66 1.305.42 1.995l-.105.315c-.119.36-.51.555-.87.435-.36-.119-.555-.51-.435-.87l.105-.315c.105-.315.045-.66-.255-.99l.001.001z"/></svg>`,
+};
+
+// 字体预设:跨平台 fallback,Windows 与 macOS 字体名都列入,浏览器自动选用本机可用者。
+// 留空=用主题默认字体;含远程字体的预设(如 LXGW)由前台运行时 @import CDN 自动加载。
+const FONT_PRESETS = [
+  { label: '— 选择预设 —', value: '' },
+  { label: '宋体', value: '"Songti SC","SimSun","宋体",serif' },
+  { label: '黑体', value: '"Heiti SC","SimHei","黑体",sans-serif' },
+  { label: '楷体', value: '"Kaiti SC","KaiTi","楷体",serif' },
+  { label: '苹方/雅黑', value: '"PingFang SC","Microsoft YaHei",sans-serif' },
+  { label: '霞鹜文楷屏幕版', value: 'LXGW WenKai Screen' },
+  { label: '无衬线', value: 'system-ui,-apple-system,"Segoe UI",sans-serif' },
+  { label: '衬线', value: 'Georgia,"Times New Roman",serif' },
+  { label: '等宽', value: '"JetBrains Mono","Fira Code",monospace' },
+];
+
+// 签名字体预设:作用于站点标题(.page-title),独立于正文字体。
+// 默认值与后端 DEFAULT_TITLE_FONT 一致,跨平台 fallback。
+const TITLE_FONT_PRESETS = [
+  { label: '— 跟随默认 —', value: '' },
+  { label: '手写(macOS/Win)', value: "'HanziPen SC','HanziPenSC-W3','HanziPenSC-W5','Kaiti SC','Ink Free',cursive" },
+  { label: '霞鹜文楷屏幕版', value: 'LXGW WenKai Screen' },
+  { label: '楷体', value: '"Kaiti SC","KaiTi","楷体",serif' },
+  { label: '苹方/雅黑', value: '"PingFang SC","Microsoft YaHei",sans-serif' },
+  { label: '宋体', value: '"Songti SC","SimSun","宋体",serif' },
+];
+
+const MAX_SOCIAL_LINKS = 8;
+// 当前编辑态:结构与 /api/appearance 公开视图一致;custom 图标 icon 存文件名,icon_url 存完整 URL
+let appearanceState = null;
+
+async function loadAppearance() {
+  const content = document.getElementById('appearanceContent');
+  try {
+    const res = await fetch(`${API_BASE}/appearance`, {
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const cfg = await res.json();
+    appearanceState = {
+      title_text: cfg.title_text ?? 'My Blog',
+      title_font_family: cfg.title_font_family || '',
+      font_family: cfg.font_family || '',
+      favicon_url: cfg.favicon_url || '',
+      avatar_url: cfg.avatar_url || '',
+      avatar_shape: cfg.avatar_shape || 'circle',
+      avatar_link: cfg.avatar_link || '',
+      social_links: (cfg.social_links || []).map(s => ({
+        id: s.id || '',
+        name: s.name || '',
+        url: s.url || '',
+        icon_type: s.icon_type || 'builtin',
+        icon: s.icon || 'github',
+        icon_url: s.icon_url || '',
+        shape: s.shape || 'circle',
+        action: s.action || 'jump',
+      })),
+    };
+    renderAppearance();
+    triggerFade(content);
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
+  }
+}
+
+// 形状按钮组:onclickStr 中的 {v} 占位符替换为具体形状值
+function shapeBtnGroup(current, onclickStr) {
+  const shapes = [{ v: 'circle', l: '圆圈' }, { v: 'square', l: '方形' }, { v: 'rounded', l: '圆角' }];
+  return `<div class="shape-btn-group">` + shapes.map(s =>
+    `<button type="button" class="shape-btn ${s.v === current ? 'active' : ''}" data-shape="${s.v}" onclick="${onclickStr.replace('{v}', s.v)}"><span class="shape-dot ${s.v}"></span>${s.l}</button>`
+  ).join('') + `</div>`;
+}
+
+function socialIconHtml(link) {
+  if (link.icon_type === 'custom' && link.icon_url) {
+    return `<img src="${esc(link.icon_url)}" alt="">`;
+  }
+  return BUILTIN_ICONS[link.icon] || BUILTIN_ICONS.github;
+}
+
+function renderAppearance() {
+  const content = document.getElementById('appearanceContent');
+  if (!appearanceState) {
+    content.innerHTML = `<div class="empty-state"><p>配置未加载</p></div>`;
+    return;
+  }
+  const s = appearanceState;
+  // option value 含双引号(如 "SimSun","宋体",serif),必须用 &quot; 转义,
+  // 否则双引号截断 value 属性导致所有预设值变空。
+  // esc() 不转义双引号,这里手动转义双引号为 &quot;。
+  const escAttr = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fontPresetOpts = FONT_PRESETS.map(p =>
+    `<option value="${escAttr(p.value)}">${esc(p.label)}</option>`
+  ).join('');
+
+  const titleFontPresetOpts = TITLE_FONT_PRESETS.map(p =>
+    `<option value="${escAttr(p.value)}">${esc(p.label)}</option>`
+  ).join('');
+
+  content.innerHTML = `
+    <div class="config-section">
+      <div class="config-section-title">站点标题</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">标题文字</label>
+          <input class="config-input" type="text" id="appearanceTitleText" value="${escAttr(s.title_text)}" placeholder="My Blog" oninput="appearanceState.title_text = this.value">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">显示在博客左上角站点标题位置,留空默认 "My Blog"</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">字体设置</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">预设字体</label>
+          <select class="config-input" id="appearanceFontPreset" style="cursor:pointer" onchange="onFontPresetChange(this.value)">${fontPresetOpts}</select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">选择预设会回填到自定义框,可再微调</div>
+        </div>
+        <div class="config-item">
+          <label class="config-label">自定义 font-family</label>
+          <input class="config-input" type="text" id="appearanceFontCustom" value="${escAttr(s.font_family)}" placeholder='如 "Source Han Sans SC", sans-serif' oninput="appearanceState.font_family = this.value">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">留空=用主题默认字体;直接写 CSS font-family 值</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">签名字体(站点标题字体)</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">预设签名字体</label>
+          <select class="config-input" id="appearanceTitleFontPreset" style="cursor:pointer" onchange="onTitleFontPresetChange(this.value)">${titleFontPresetOpts}</select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">作用于站点标题,独立于正文字体;留空跟随默认手写体</div>
+        </div>
+        <div class="config-item">
+          <label class="config-label">自定义签名 font-family</label>
+          <input class="config-input" type="text" id="appearanceTitleFontCustom" value="${escAttr(s.title_font_family)}" placeholder="留空=跟随默认" oninput="appearanceState.title_font_family = this.value">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">直接写 CSS font-family 值,留空使用默认跨平台手写体</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">网站图标 (Favicon)</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <img id="appearanceFaviconPreview" class="preview-img favicon ${s.favicon_url ? '' : 'empty'}" src="${s.favicon_url ? esc(s.favicon_url) : ''}" ${s.favicon_url ? '' : 'alt="未设置"'}>
+        <button class="upload-btn" onclick="triggerAppearanceUpload('favicon')">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          上传 Favicon
+        </button>
+        <button class="action-btn" id="appearanceClearFaviconBtn" onclick="clearAppearanceImage('favicon')" ${s.favicon_url ? '' : 'disabled'}>清除</button>
+        <span style="font-size:.72rem;color:var(--text-muted)">支持 png/jpeg/webp/svg/ico/gif,≤2MB</span>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">博客头像</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+        <img id="appearanceAvatarPreview" class="preview-img ${s.avatar_shape} ${s.avatar_url ? '' : 'empty'}" src="${s.avatar_url ? esc(s.avatar_url) : ''}" ${s.avatar_url ? '' : 'alt="未设置"'}>
+        <button class="upload-btn" onclick="triggerAppearanceUpload('avatar')">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          上传头像
+        </button>
+        <button class="action-btn" id="appearanceClearAvatarBtn" onclick="clearAppearanceImage('avatar')" ${s.avatar_url ? '' : 'disabled'}>清除</button>
+      </div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">头像形状</label>
+          <div id="appearanceAvatarShapeGroup">${shapeBtnGroup(s.avatar_shape, "setAvatarShape('{v}')")}</div>
+        </div>
+        <div class="config-item">
+          <label class="config-label">点击头像跳转链接</label>
+          <input class="config-input" type="text" value="${esc(s.avatar_link)}" placeholder="留空=点击无跳转" oninput="appearanceState.avatar_link = this.value">
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">填 http(s) 链接,留空则头像不可点击</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">社交联系方式 (关系图谱上方)</div>
+      <div class="social-preview-row" id="appearanceSocialPreview"></div>
+      <div id="appearanceSocialList"></div>
+      <button class="upload-btn" id="appearanceAddSocialBtn" onclick="addSocialLink()" ${s.social_links.length >= MAX_SOCIAL_LINKS ? 'disabled' : ''}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        添加社交链接 (${s.social_links.length}/${MAX_SOCIAL_LINKS})
+      </button>
+    </div>
+
+    <div class="config-footer">
+      <button class="btn-save" id="saveAppearanceBtn" onclick="saveAppearance()">保存外观配置</button>
+      <span class="save-hint">保存后即时生效,刷新博客可见</span>
+    </div>
+  `;
+
+  // 同步字体预设下拉选中态:匹配自定义框当前值,无匹配则显示占位项
+  const presetSel = document.getElementById('appearanceFontPreset');
+  if (presetSel) {
+    const match = FONT_PRESETS.find(p => p.value === s.font_family);
+    presetSel.value = match ? match.value : '';
+  }
+  // 同步签名字体预设下拉选中态
+  const titlePresetSel = document.getElementById('appearanceTitleFontPreset');
+  if (titlePresetSel) {
+    const tmatch = TITLE_FONT_PRESETS.find(p => p.value === s.title_font_family);
+    titlePresetSel.value = tmatch ? tmatch.value : '';
+  }
+
+  renderSocialList();
+  renderSocialPreview();
+}
+
+function onTitleFontPresetChange(value) {
+  if (!appearanceState) return;
+  appearanceState.title_font_family = value;
+  const input = document.getElementById('appearanceTitleFontCustom');
+  if (input) input.value = value;
+}
+
+function onFontPresetChange(value) {
+  if (!appearanceState) return;
+  appearanceState.font_family = value;
+  const input = document.getElementById('appearanceFontCustom');
+  if (input) input.value = value;
+}
+
+// 触发隐藏 file input:kind 为 avatar/favicon 时上传对应图片;传 idx 表示上传社交图标
+function triggerAppearanceUpload(kind, idx) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon,image/vnd.microsoft.icon,image/gif';
+  input.onchange = () => {
+    if (input.files && input.files[0]) {
+      if (typeof idx === 'number') uploadSocialIcon(idx, input.files[0]);
+      else uploadAppearanceImage(kind, input.files[0]);
+    }
+  };
+  input.click();
+}
+
+function readDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAppearanceImage(kind, file) {
+  try {
+    const dataUrl = await readDataUrl(file);
+    const res = await fetch(`${API_BASE}/appearance/upload`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl, kind })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status}`);
+    }
+    const data = await res.json();
+    if (kind === 'avatar') {
+      appearanceState.avatar_url = data.url;
+      const img = document.getElementById('appearanceAvatarPreview');
+      if (img) { img.src = data.url; img.classList.remove('empty'); img.removeAttribute('alt'); }
+      const btn = document.getElementById('appearanceClearAvatarBtn');
+      if (btn) btn.disabled = false;
+    } else if (kind === 'favicon') {
+      appearanceState.favicon_url = data.url;
+      const img = document.getElementById('appearanceFaviconPreview');
+      if (img) { img.src = data.url; img.classList.remove('empty'); img.removeAttribute('alt'); }
+      const btn = document.getElementById('appearanceClearFaviconBtn');
+      if (btn) btn.disabled = false;
+    }
+    showToast('上传成功,记得保存配置', 'success');
+  } catch (e) {
+    showToast('上传失败：' + e.message, 'error');
+  }
+}
+
+function clearAppearanceImage(kind) {
+  if (!appearanceState) return;
+  if (kind === 'avatar') {
+    appearanceState.avatar_url = '';
+    const img = document.getElementById('appearanceAvatarPreview');
+    if (img) { img.src = ''; img.classList.add('empty'); img.setAttribute('alt', '未设置'); }
+    const btn = document.getElementById('appearanceClearAvatarBtn');
+    if (btn) btn.disabled = true;
+  } else if (kind === 'favicon') {
+    appearanceState.favicon_url = '';
+    const img = document.getElementById('appearanceFaviconPreview');
+    if (img) { img.src = ''; img.classList.add('empty'); img.setAttribute('alt', '未设置'); }
+    const btn = document.getElementById('appearanceClearFaviconBtn');
+    if (btn) btn.disabled = true;
+  }
+}
+
+function setAvatarShape(shape) {
+  if (!appearanceState) return;
+  appearanceState.avatar_shape = shape;
+  const wrap = document.getElementById('appearanceAvatarShapeGroup');
+  if (wrap) wrap.innerHTML = shapeBtnGroup(shape, "setAvatarShape('{v}')");
+  const img = document.getElementById('appearanceAvatarPreview');
+  if (img) {
+    img.classList.remove('circle', 'square', 'rounded');
+    img.classList.add(shape);
+  }
+}
+
+function renderSocialPreview() {
+  const row = document.getElementById('appearanceSocialPreview');
+  if (!row || !appearanceState) return;
+  const links = appearanceState.social_links;
+  if (!links.length) {
+    row.innerHTML = `<span style="font-size:.78rem;color:var(--text-muted)">暂无社交链接,点击下方"添加"按钮新增</span>`;
+    return;
+  }
+  row.innerHTML = links.map(l =>
+    `<span class="sp-item ${l.shape || 'circle'}" title="${esc(l.name)}">${socialIconHtml(l)}</span>`
+  ).join('');
+}
+
+function renderSocialList() {
+  const wrap = document.getElementById('appearanceSocialList');
+  if (!wrap || !appearanceState) return;
+  const links = appearanceState.social_links;
+  wrap.innerHTML = links.map((l, idx) => {
+    const iconOpts = Object.keys(BUILTIN_ICONS).map(k =>
+      `<option value="${k}" ${l.icon === k ? 'selected' : ''}>${k}</option>`
+    ).join('');
+    const iconControl = l.icon_type === 'builtin'
+      ? `<select class="config-input" style="max-width:160px" onchange="onSocialIconSelect(${idx}, this.value)">${iconOpts}</select>`
+      : `<button class="upload-btn" onclick="triggerAppearanceUpload('icon', ${idx})"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>${l.icon_url ? '更换图标' : '上传图标'}</button>`;
+    return `<div class="social-link-card">
+      <div class="slc-row">
+        <span class="slc-preview ${l.shape || 'circle'}">${socialIconHtml(l)}</span>
+        <select class="config-input" style="max-width:130px" onchange="setSocialIconType(${idx}, this.value)">
+          <option value="builtin" ${l.icon_type === 'builtin' ? 'selected' : ''}>内置图标</option>
+          <option value="custom" ${l.icon_type === 'custom' ? 'selected' : ''}>自定义图标</option>
+        </select>
+        ${iconControl}
+        <button class="action-btn" onclick="removeSocialLink(${idx})" style="margin-left:auto">删除</button>
+      </div>
+      <div class="slc-row">
+        <input class="config-input" type="text" placeholder="名称(如 GitHub)" value="${esc(l.name)}" oninput="onSocialField(${idx}, 'name', this.value)" style="flex:1;min-width:120px">
+        <input class="config-input" type="text" placeholder="链接 URL 或邮箱(email 图标+跳转自动 mailto)" value="${esc(l.url)}" oninput="onSocialField(${idx}, 'url', this.value)" style="flex:2;min-width:160px">
+      </div>
+      <div class="slc-row">
+        <span class="config-label" style="margin-right:6px">形状</span>
+        ${shapeBtnGroup(l.shape || 'circle', `setSocialShape(${idx}, '{v}')`)}
+        <span class="config-label" style="margin-left:16px;margin-right:6px">点击动作</span>
+        <select class="config-input" style="max-width:120px" onchange="setSocialAction(${idx}, this.value)">
+          <option value="jump" ${(l.action || 'jump') === 'jump' ? 'selected' : ''}>跳转链接</option>
+          <option value="copy" ${l.action === 'copy' ? 'selected' : ''}>复制链接</option>
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateAddSocialBtn() {
+  const btn = document.getElementById('appearanceAddSocialBtn');
+  if (!btn || !appearanceState) return;
+  const n = appearanceState.social_links.length;
+  btn.disabled = n >= MAX_SOCIAL_LINKS;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加社交链接 (${n}/${MAX_SOCIAL_LINKS})`;
+}
+
+function addSocialLink() {
+  if (!appearanceState || appearanceState.social_links.length >= MAX_SOCIAL_LINKS) return;
+  appearanceState.social_links.push({
+    id: '', name: '', url: '', icon_type: 'builtin', icon: 'github', icon_url: '', shape: 'circle', action: 'jump',
+  });
+  renderSocialList();
+  renderSocialPreview();
+  updateAddSocialBtn();
+}
+
+function removeSocialLink(idx) {
+  if (!appearanceState) return;
+  appearanceState.social_links.splice(idx, 1);
+  renderSocialList();
+  renderSocialPreview();
+  updateAddSocialBtn();
+}
+
+function setSocialIconType(idx, type) {
+  if (!appearanceState) return;
+  const l = appearanceState.social_links[idx];
+  if (!l) return;
+  l.icon_type = type;
+  // 切换类型时重置图标状态:builtin 回到 github,custom 清空待上传
+  l.icon = type === 'builtin' ? 'github' : '';
+  l.icon_url = '';
+  renderSocialList();
+  renderSocialPreview();
+}
+
+function onSocialIconSelect(idx, value) {
+  if (!appearanceState) return;
+  const l = appearanceState.social_links[idx];
+  if (!l) return;
+  l.icon = value;
+  renderSocialList();
+  renderSocialPreview();
+}
+
+function onSocialField(idx, field, value) {
+  if (!appearanceState) return;
+  const l = appearanceState.social_links[idx];
+  if (!l) return;
+  l[field] = value;
+  if (field === 'name') renderSocialPreview();
+}
+
+function setSocialShape(idx, shape) {
+  if (!appearanceState) return;
+  const l = appearanceState.social_links[idx];
+  if (!l) return;
+  l.shape = shape;
+  renderSocialList();
+  renderSocialPreview();
+}
+
+function setSocialAction(idx, action) {
+  if (!appearanceState) return;
+  const l = appearanceState.social_links[idx];
+  if (!l) return;
+  l.action = action;
+}
+
+async function uploadSocialIcon(idx, file) {
+  if (!appearanceState) return;
+  try {
+    const dataUrl = await readDataUrl(file);
+    const res = await fetch(`${API_BASE}/appearance/upload`, {
+      method: 'POST',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl, kind: 'icon' })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status}`);
+    }
+    const data = await res.json();
+    const l = appearanceState.social_links[idx];
+    if (l) { l.icon = data.filename; l.icon_url = data.url; }
+    renderSocialList();
+    renderSocialPreview();
+    showToast('图标上传成功,记得保存配置', 'success');
+  } catch (e) {
+    showToast('上传失败：' + e.message, 'error');
+  }
+}
+
+async function saveAppearance() {
+  if (!appearanceState) return;
+  const btn = document.getElementById('saveAppearanceBtn');
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    const res = await fetch(`${API_BASE}/appearance`, {
+      method: 'PUT',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify(appearanceState)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status}`);
+    }
+    const data = await res.json();
+    showToast(data.message || '外观配置已生效,刷新博客可见', 'success');
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '保存外观配置';
   }
 }
 

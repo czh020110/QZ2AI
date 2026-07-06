@@ -15,6 +15,7 @@ from .errors import AppError
 from .indexer import get_chroma_collection, reindex
 from .models import ChatRequest, ErrorResponse, HealthResponse, ReindexResponse, WebhookResponse
 from .admin import router as admin_router, verify_webhook, trigger_sync_pending
+from .appearance import public_router as appearance_public_router
 
 # 配置根 logger：supervisord 把 stdout 接到容器日志，INFO 级别让 syncer/notifier 等后台线程的日志可见
 logging.basicConfig(
@@ -26,6 +27,7 @@ logger = logging.getLogger("api")
 
 app = FastAPI(title="Blog AI API", version="0.1.0")
 app.include_router(admin_router)
+app.include_router(appearance_public_router)
 
 
 @app.on_event("startup")

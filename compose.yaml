@@ -17,6 +17,8 @@ services:
       - .:/project:ro
       - public:/usr/share/nginx/html:ro
       - ./apps/admin:/usr/share/nginx/admin:ro
+      # 本地字体包(LXGW WenKai Screen 等):nginx 直接托管,避免依赖 CDN
+      - ./apps/web/fonts:/usr/share/nginx/fonts:ro
     environment:
       - PROJECT_DIR=/project
       - https_proxy=${https_proxy:-}

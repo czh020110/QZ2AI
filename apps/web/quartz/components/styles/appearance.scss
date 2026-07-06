@@ -1,0 +1,107 @@
+/* 外观设置注入样式:左上角头像 + 右上角社交链接。
+   形状三态:circle / square / rounded,通过 class 切换 border-radius。
+   颜色用 Quartz 主题变量(--darkgray/--lightgray/--secondary),自动适配明暗模式。
+
+   定位策略:头像/社交用 position:absolute 悬浮在 sidebar 的 padding-top(6rem)空白区域内,
+   脱离文档流,不挤压 sidebar 内的搜索框/文件树/图谱/TOC 等原有内容。
+   sidebar 是 sticky(定位上下文),absolute 子元素相对它定位,滚动时始终显示在顶部。
+   移动端 sidebar 取消 sticky 改为 row 流式布局,这里 fallback 到 static。 */
+
+.appearance-avatar-wrapper {
+  position: absolute;
+  top: 1.5rem;
+  left: 2rem;
+  width: 64px;
+  height: 64px;
+  aspect-ratio: 1 / 1;
+  z-index: 5;
+  flex-shrink: 0;
+  overflow: hidden;
+  line-height: 0;
+
+  &.avatar-circle { border-radius: 50%; }
+  &.avatar-square { border-radius: 0; }
+  &.avatar-rounded { border-radius: 12px; }
+
+  .appearance-avatar {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    object-fit: cover;
+    display: block;
+    content-visibility: visible;
+  }
+
+  &:hover .appearance-avatar {
+    opacity: 0.92;
+  }
+}
+
+.appearance-socials {
+  position: absolute;
+  top: 1.5rem;
+  left: 2rem;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  z-index: 5;
+}
+
+.appearance-socials .social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--darkgray);
+  background: var(--lightgray);
+  border: 1px solid var(--lightgray);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+
+  &.social-circle { border-radius: 50%; }
+  &.social-square { border-radius: 0; }
+  &.social-rounded { border-radius: 8px; }
+
+  &:hover {
+    color: var(--light);
+    background: var(--secondary);
+    border-color: var(--secondary);
+    transform: translateY(-2px);
+  }
+
+  svg,
+  .social-icon-img {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+
+  .social-icon-img {
+    object-fit: contain;
+    margin: 0;
+    content-visibility: visible;
+  }
+}
+
+/* 移动端:sidebar 取消 sticky 改为 row 流式布局,absolute 定位会错位,
+   fallback 到 static 居中布局,避免遮挡内容。 */
+@media (max-width: 800px) {
+  .appearance-avatar-wrapper,
+  .appearance-socials {
+    position: static;
+    transform: none;
+    left: auto;
+    top: auto;
+  }
+  .appearance-avatar-wrapper {
+    margin: 0 auto 1rem;
+  }
+  .appearance-socials {
+    margin: 1rem auto;
+    justify-content: center;
+  }
+}
