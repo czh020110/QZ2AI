@@ -36,7 +36,32 @@
     --radius: 10px;
     --radius-sm: 6px;
     --shadow: 0 0 0 1px rgba(255,255,255,.04);
+    /* 交互层叠高光:深色主题用白色低透明,浅色主题覆盖为黑色低透明 */
+    --overlay-soft: rgba(255,255,255,.04);   /* 悬停背景、卡片悬停投影 */
+    --overlay: rgba(255,255,255,.07);         /* 激活背景、聚焦环 */
+    --overlay-border: rgba(255,255,255,.12);  /* 悬停/激活边框高光 */
     --transition: .2s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* 浅色主题:跟随系统 prefers-color-scheme,无需设置切换。
+     深色为默认;系统浅色时覆盖背景层、文字色与交互高光。
+     状态色(错误/建议/已解决等)前景色两种主题通用。 */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg-deep: #f6f7f9;
+      --bg-panel: #ffffff;
+      --bg-card: #ffffff;
+      --bg-input: #ffffff;
+      --border: #e4e4e3;
+      --border-focus: #b8b8b6;
+      --text-primary: #1a1a1a;
+      --text-secondary: #555554;
+      --text-muted: #8a8a88;
+      --shadow: 0 0 0 1px rgba(0,0,0,.05);
+      --overlay-soft: rgba(0,0,0,.04);
+      --overlay: rgba(0,0,0,.08);
+      --overlay-border: rgba(0,0,0,.10);
+    }
   }
 
   html { font-size: 15px; }
@@ -105,14 +130,14 @@
   }
 
   .nav-item:hover {
-    background: rgba(255,255,255,.04);
+    background: var(--overlay-soft);
     color: var(--text-primary);
   }
 
   .nav-item.active {
-    background: rgba(255,255,255,.06);
+    background: var(--overlay);
     color: var(--text-primary);
-    border-color: rgba(255,255,255,.10);
+    border-color: var(--overlay-border);
     font-weight: 500;
   }
 
@@ -232,8 +257,8 @@
   }
 
   .feedback-card:hover {
-    border-color: rgba(255,255,255,.12);
-    box-shadow: 0 0 0 1px rgba(255,255,255,.04);
+    border-color: var(--overlay-border);
+    box-shadow: 0 0 0 1px var(--overlay-soft);
   }
 
   .feedback-top {
@@ -481,7 +506,7 @@
     background: var(--bg-deep);
   }
   .switch input:focus-visible + .slider {
-    box-shadow: 0 0 0 2px rgba(255,255,255,.08);
+    box-shadow: 0 0 0 2px var(--overlay);
   }
 
   /* 通知开关卡片：横向布局，标题+副标题在左，滑块在右 */
@@ -497,7 +522,7 @@
     transition: border-color var(--transition);
   }
   .toggle-card:hover {
-    border-color: rgba(255,255,255,.12);
+    border-color: var(--overlay-border);
   }
   .toggle-card-text {
     display: flex;
@@ -534,7 +559,7 @@
 
   .config-input:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.06);
+    box-shadow: 0 0 0 2px var(--overlay);
   }
 
   .config-input.sensitive {
@@ -730,7 +755,7 @@
 
   .login-input:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(255,255,255,.06);
+    box-shadow: 0 0 0 3px var(--overlay);
   }
 
   .login-btn {
@@ -2048,7 +2073,15 @@ async function loadAppearance() {
         shape: s.shape || 'circle',
         action: s.action || 'jump',
       })),
+      background_presets: (cfg.background_presets || []).map(p => ({
+        id: p.id || '',
+        name: p.name || '',
+        light: p.light || '',
+        dark: p.dark || '',
+      })),
+      active_background_id: cfg.active_background_id || '',
     };
+    editingBgIdx = -1;
     renderAppearance();
     triggerFade(content);
   } catch (e) {
@@ -2180,6 +2213,45 @@ function renderAppearance() {
       </button>
     </div>
 
+    <div class="config-section">
+      <div class="config-section-title">背景颜色 (深色/浅色预设)</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">当前应用</label>
+          <select class="config-input" id="appearanceBgActive" style="cursor:pointer" onchange="applyBackgroundPreset(this.value)">
+            <option value="">不应用(Quartz 默认背景)</option>
+            ${s.background_presets.map(p => `<option value="${esc(p.id)}" ${p.id === s.active_background_id ? 'selected' : ''}>${esc(p.name) || '未命名预设'}</option>`).join('')}
+          </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px">选择一个预设应用到博客背景,同时只生效一个</div>
+        </div>
+      </div>
+      <div id="appearanceBgList"></div>
+      <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px dashed var(--background-modifier-border)">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label class="config-label">预设名称</label>
+          <input class="config-input" type="text" id="appearanceBgNewName" placeholder="如 米白" maxlength="50" style="width:150px">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label class="config-label">浅色背景</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="color" id="appearanceBgNewLight" value="#ffffff" style="width:38px;height:34px;padding:0;border:1px solid var(--background-modifier-border);border-radius:6px;cursor:pointer;background:none" oninput="onNewBgColor('light', this.value)">
+            <input class="config-input" type="text" id="appearanceBgNewLightHex" value="#FFFFFF" placeholder="#F9F9F7" oninput="onNewBgHex('light', this.value)" style="width:95px">
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label class="config-label">深色背景</label>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="color" id="appearanceBgNewDark" value="#1e1e1e" style="width:38px;height:34px;padding:0;border:1px solid var(--background-modifier-border);border-radius:6px;cursor:pointer;background:none" oninput="onNewBgColor('dark', this.value)">
+            <input class="config-input" type="text" id="appearanceBgNewDarkHex" value="#1E1E1E" placeholder="#1E1E1E" oninput="onNewBgHex('dark', this.value)" style="width:95px">
+          </div>
+        </div>
+      </div>
+      <button class="upload-btn" id="appearanceAddBgBtn" onclick="addBackgroundPreset()" ${s.background_presets.length >= 10 ? 'disabled' : ''}>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        保存为新预设 (${s.background_presets.length}/10)
+      </button>
+    </div>
+
     <div class="config-footer">
       <button class="btn-save" id="saveAppearanceBtn" onclick="saveAppearance()">保存外观配置</button>
       <span class="save-hint">保存后即时生效,刷新博客可见</span>
@@ -2201,6 +2273,7 @@ function renderAppearance() {
 
   renderSocialList();
   renderSocialPreview();
+  renderBackgroundList();
 }
 
 function onTitleFontPresetChange(value) {
@@ -2358,6 +2431,199 @@ function updateAddSocialBtn() {
   const n = appearanceState.social_links.length;
   btn.disabled = n >= MAX_SOCIAL_LINKS;
   btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 添加社交链接 (${n}/${MAX_SOCIAL_LINKS})`;
+}
+
+// ===== 背景颜色预设 =====
+// 预设是一对深浅背景色,保存多个但只应用一个(active)。
+// 颜色用 #RRGGBB 格式,color picker 与 hex 文本框双向同步。
+
+let editingBgIdx = -1;  // 正在编辑的预设下标,-1=非编辑
+
+// input value 转义:esc() 不转义双引号,这里补转义双引号防 value 属性截断
+function bgEscAttr(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderBackgroundList() {
+  const wrap = document.getElementById('appearanceBgList');
+  if (!wrap || !appearanceState) return;
+  const presets = appearanceState.background_presets;
+  if (!presets.length) {
+    wrap.innerHTML = `<div style="font-size:.78rem;color:var(--text-muted);padding:8px 0">暂无预设,在下方填写名称与颜色后点击"保存为新预设"</div>`;
+    return;
+  }
+  wrap.innerHTML = presets.map((p, idx) => {
+    const active = p.id === appearanceState.active_background_id;
+    if (idx === editingBgIdx) {
+      // 编辑态:名称 + 浅色 + 深色 inline 编辑(color picker 不能为空,空值用占位色)
+      const lp = p.light || '#ffffff';
+      const dp = p.dark || '#1e1e1e';
+      return `<div class="social-link-card">
+        <div class="slc-row" style="flex-wrap:wrap;gap:10px">
+          <input class="config-input" type="text" value="${bgEscAttr(p.name)}" id="editBgName_${idx}" placeholder="名称" style="width:130px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:.75rem;color:var(--text-muted)">浅</span>
+            <input type="color" value="${lp}" id="editBgLight_${idx}" style="width:34px;height:30px;padding:0;border:1px solid var(--background-modifier-border);border-radius:6px;cursor:pointer;background:none" oninput="onEditBgColor(${idx},'light',this.value)">
+            <input class="config-input" type="text" value="${bgEscAttr(p.light).toUpperCase()}" id="editBgLightHex_${idx}" placeholder="#F9F9F7" oninput="onEditBgHex(${idx},'light',this.value)" style="width:90px">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:.75rem;color:var(--text-muted)">深</span>
+            <input type="color" value="${dp}" id="editBgDark_${idx}" style="width:34px;height:30px;padding:0;border:1px solid var(--background-modifier-border);border-radius:6px;cursor:pointer;background:none" oninput="onEditBgColor(${idx},'dark',this.value)">
+            <input class="config-input" type="text" value="${bgEscAttr(p.dark).toUpperCase()}" id="editBgDarkHex_${idx}" placeholder="#1E1E1E" oninput="onEditBgHex(${idx},'dark',this.value)" style="width:90px">
+          </div>
+          <button class="action-btn" onclick="saveEditBackgroundPreset(${idx})" style="margin-left:auto">保存</button>
+          <button class="action-btn" onclick="cancelEditBackgroundPreset()">取消</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="social-link-card">
+      <div class="slc-row">
+        <span class="config-label" style="min-width:80px">${esc(p.name) || '未命名'}</span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:.8rem">
+          <span style="display:inline-block;width:18px;height:18px;border-radius:4px;border:1px solid var(--background-modifier-border);background:${esc(p.light) || 'transparent'}"></span>
+          浅 ${esc(p.light) || '—'}
+        </span>
+        <span style="display:flex;align-items:center;gap:6px;font-size:.8rem">
+          <span style="display:inline-block;width:18px;height:18px;border-radius:4px;border:1px solid var(--background-modifier-border);background:${esc(p.dark) || 'transparent'}"></span>
+          深 ${esc(p.dark) || '—'}
+        </span>
+        <button class="action-btn" onclick="applyBackgroundPreset('${esc(p.id)}')" ${active ? 'disabled' : ''} style="margin-left:auto">${active ? '已应用' : '应用'}</button>
+        <button class="action-btn" onclick="editBackgroundPreset(${idx})">编辑</button>
+        <button class="action-btn" onclick="removeBackgroundPreset(${idx})">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// 刷新 active 下拉选项 + 新增按钮计数(预设增删后调用,避免整表重建丢失新增表单输入)
+function updateBackgroundControls() {
+  if (!appearanceState) return;
+  const sel = document.getElementById('appearanceBgActive');
+  if (sel) {
+    const cur = appearanceState.active_background_id;
+    sel.innerHTML = '<option value="">不应用(Quartz 默认背景)</option>' +
+      appearanceState.background_presets.map(p =>
+        `<option value="${esc(p.id)}" ${p.id === cur ? 'selected' : ''}>${esc(p.name) || '未命名预设'}</option>`
+      ).join('');
+  }
+  const btn = document.getElementById('appearanceAddBgBtn');
+  if (btn) {
+    const n = appearanceState.background_presets.length;
+    btn.disabled = n >= 10;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> 保存为新预设 (${n}/10)`;
+  }
+}
+
+function applyBackgroundPreset(id) {
+  if (!appearanceState) return;
+  appearanceState.active_background_id = id;
+  renderBackgroundList();
+  const sel = document.getElementById('appearanceBgActive');
+  if (sel) sel.value = id;
+  showToast(id ? '已切换预设,记得保存配置' : '已取消应用,记得保存配置', 'info');
+}
+
+function removeBackgroundPreset(idx) {
+  if (!appearanceState) return;
+  const removed = appearanceState.background_presets[idx];
+  if (!removed) return;
+  appearanceState.background_presets.splice(idx, 1);
+  // 删除的是 active 则置空
+  if (removed.id === appearanceState.active_background_id) {
+    appearanceState.active_background_id = '';
+  }
+  renderBackgroundList();
+  updateBackgroundControls();
+}
+
+// 编辑态:进入编辑、取消、保存;颜色 picker 与 hex 双向同步
+function editBackgroundPreset(idx) {
+  if (!appearanceState) return;
+  editingBgIdx = idx;
+  renderBackgroundList();
+}
+
+function cancelEditBackgroundPreset() {
+  editingBgIdx = -1;
+  renderBackgroundList();
+}
+
+function onEditBgColor(idx, mode, value) {
+  const hexInput = document.getElementById(`editBg${mode === 'light' ? 'Light' : 'Dark'}Hex_${idx}`);
+  if (hexInput) hexInput.value = value.toUpperCase();
+}
+
+function onEditBgHex(idx, mode, value) {
+  const v = value.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+    const picker = document.getElementById(`editBg${mode === 'light' ? 'Light' : 'Dark'}_${idx}`);
+    if (picker) picker.value = v.toLowerCase();
+  }
+}
+
+function saveEditBackgroundPreset(idx) {
+  if (!appearanceState) return;
+  const p = appearanceState.background_presets[idx];
+  if (!p) return;
+  const name = document.getElementById(`editBgName_${idx}`).value.trim();
+  const light = document.getElementById(`editBgLightHex_${idx}`).value.trim();
+  const dark = document.getElementById(`editBgDarkHex_${idx}`).value.trim();
+  const lightOk = /^#[0-9A-Fa-f]{6}$/.test(light);
+  const darkOk = /^#[0-9A-Fa-f]{6}$/.test(dark);
+  if (!lightOk && !darkOk) {
+    showToast('至少保留一个合法的 #RRGGBB 颜色', 'error');
+    return;
+  }
+  p.name = name;
+  p.light = lightOk ? light : '';
+  p.dark = darkOk ? dark : '';
+  editingBgIdx = -1;
+  renderBackgroundList();
+  updateBackgroundControls();  // 名称可能改了,刷新 active 下拉
+  showToast('已修改,记得保存配置', 'success');
+}
+
+// 新增表单:color picker → hex 文本框
+function onNewBgColor(mode, value) {
+  const hexInput = document.getElementById(mode === 'light' ? 'appearanceBgNewLightHex' : 'appearanceBgNewDarkHex');
+  if (hexInput) hexInput.value = value.toUpperCase();
+}
+
+// 新增表单:hex 文本框 → color picker(合法 #RRGGBB 才同步 picker)
+function onNewBgHex(mode, value) {
+  const v = value.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+    const picker = document.getElementById(mode === 'light' ? 'appearanceBgNewLight' : 'appearanceBgNewDark');
+    if (picker) picker.value = v.toLowerCase();
+  }
+}
+
+function addBackgroundPreset() {
+  if (!appearanceState || appearanceState.background_presets.length >= 10) return;
+  const name = document.getElementById('appearanceBgNewName').value.trim();
+  const light = document.getElementById('appearanceBgNewLightHex').value.trim();
+  const dark = document.getElementById('appearanceBgNewDarkHex').value.trim();
+  const lightOk = /^#[0-9A-Fa-f]{6}$/.test(light);
+  const darkOk = /^#[0-9A-Fa-f]{6}$/.test(dark);
+  if (!lightOk && !darkOk) {
+    showToast('至少填写一个合法的 #RRGGBB 颜色', 'error');
+    return;
+  }
+  appearanceState.background_presets.push({
+    id: '',  // 后端保存时生成
+    name: name,
+    light: lightOk ? light : '',
+    dark: darkOk ? dark : '',
+  });
+  // 清空新增表单
+  document.getElementById('appearanceBgNewName').value = '';
+  document.getElementById('appearanceBgNewLight').value = '#ffffff';
+  document.getElementById('appearanceBgNewLightHex').value = '#FFFFFF';
+  document.getElementById('appearanceBgNewDark').value = '#1e1e1e';
+  document.getElementById('appearanceBgNewDarkHex').value = '#1E1E1E';
+  renderBackgroundList();
+  updateBackgroundControls();
+  showToast('已添加预设,记得保存配置', 'success');
 }
 
 function addSocialLink() {

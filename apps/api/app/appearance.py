@@ -8,6 +8,7 @@
 import base64
 import json
 import logging
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,8 @@ public_router = APIRouter(prefix="/api/appearance", tags=["appearance"])
 ASSET_URL_PREFIX = "/api/appearance/asset/"
 MAX_IMAGE_BYTES = 2 * 1024 * 1024  # 2MB,base64 解码后上限
 MAX_SOCIAL_LINKS = 8
+MAX_BACKGROUND_PRESETS = 10
+HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")  # #RRGGBB,大小写不敏感
 VALID_SHAPES = {"circle", "square", "rounded"}
 VALID_ICON_TYPES = {"builtin", "custom"}
 VALID_ACTIONS = {"jump", "copy"}  # jump=跳转(邮箱自动 mailto), copy=复制到剪贴板
@@ -50,6 +53,8 @@ DEFAULT_APPEARANCE: dict[str, Any] = {
     "avatar_shape": "circle",
     "avatar_link": "",
     "social_links": [],
+    "background_presets": [],  # 背景色预设:[{id,name,light,dark}],每个一对深浅色
+    "active_background_id": "",  # 当前应用预设 id,空串=不覆盖(用 Quartz 默认背景)
 }
 
 # 签名字体跨平台默认:macOS 用系统自带 HanziPen SC 手写体。
@@ -114,6 +119,12 @@ def _strip_to_filename(value: str) -> str:
     return v
 
 
+def _valid_hex(s: Any) -> str:
+    """校验 #RRGGBB 颜色值,合法返回小写归一值,非法返回空串"""
+    v = str(s or "").strip()
+    return v.lower() if HEX_COLOR_RE.match(v) else ""
+
+
 def _public_view(cfg: dict[str, Any]) -> dict[str, Any]:
     """把存储视图(文件名)转成公开视图(完整 URL),供前端直接使用"""
     links = []
@@ -130,6 +141,18 @@ def _public_view(cfg: dict[str, Any]) -> dict[str, Any]:
             "shape": s.get("shape", "circle"),
             "action": s.get("action", "jump") if s.get("action", "jump") in VALID_ACTIONS else "jump",
         })
+    # 背景预设:仅输出 active 指向的预设(前端直接用,无需查表);无 active 或指向不存在则 null
+    presets = cfg.get("background_presets", []) or []
+    active_id = cfg.get("active_background_id", "") or ""
+    background = None
+    for p in presets:
+        if active_id and p.get("id") == active_id:
+            background = {
+                "name": p.get("name", ""),
+                "light": p.get("light", ""),
+                "dark": p.get("dark", ""),
+            }
+            break
     return {
         "title_text": cfg.get("title_text", "My Blog"),
         "title_font_family": cfg.get("title_font_family", "") or DEFAULT_TITLE_FONT,
@@ -139,11 +162,25 @@ def _public_view(cfg: dict[str, Any]) -> dict[str, Any]:
         "avatar_shape": cfg.get("avatar_shape", "circle"),
         "avatar_link": cfg.get("avatar_link", ""),
         "social_links": links,
+        "background": background,
     }
 
 
 def get_appearance_public() -> dict[str, Any]:
     return _public_view(_read_raw())
+
+
+def get_appearance_admin() -> dict[str, Any]:
+    """管理视图:公开视图 + 完整背景预设列表与 active id,供后台编辑预设。
+
+    公开视图只暴露 active 预设的 background 字段(博客前端只需生效项);
+    后台需要完整预设列表才能增删改,故单独提供。
+    """
+    cfg = _read_raw()
+    view = _public_view(cfg)
+    view["background_presets"] = cfg.get("background_presets", []) or []
+    view["active_background_id"] = cfg.get("active_background_id", "") or ""
+    return view
 
 
 def save_appearance(data: dict[str, Any]) -> dict[str, Any]:
@@ -157,6 +194,8 @@ def save_appearance(data: dict[str, Any]) -> dict[str, Any]:
         "avatar_shape": data.get("avatar_shape", "circle") if data.get("avatar_shape", "circle") in VALID_SHAPES else "circle",
         "avatar_link": str(data.get("avatar_link", ""))[:500],
         "social_links": [],
+        "background_presets": [],
+        "active_background_id": "",
     }
     for s in (data.get("social_links", []) or [])[:MAX_SOCIAL_LINKS]:
         icon_type = s.get("icon_type", "builtin")
@@ -183,6 +222,22 @@ def save_appearance(data: dict[str, Any]) -> dict[str, Any]:
             "shape": shape,
             "action": action,
         })
+    # 背景预设:校验 hex 颜色,light/dark 至少一个合法才保留;两个都非法则丢弃
+    for p in (data.get("background_presets", []) or [])[:MAX_BACKGROUND_PRESETS]:
+        light = _valid_hex(p.get("light", ""))
+        dark = _valid_hex(p.get("dark", ""))
+        if not light and not dark:
+            continue
+        cfg["background_presets"].append({
+            "id": str(p.get("id") or uuid.uuid4().hex[:8]),
+            "name": str(p.get("name", ""))[:50],
+            "light": light,
+            "dark": dark,
+        })
+    # active 必须指向已保留的预设,否则置空(用 Quartz 默认背景)
+    active_id = str(data.get("active_background_id", "") or "")
+    if active_id and any(p["id"] == active_id for p in cfg["background_presets"]):
+        cfg["active_background_id"] = active_id
     _appearance_path().write_text(
         json.dumps(cfg, ensure_ascii=False, indent=2), "utf-8"
     )

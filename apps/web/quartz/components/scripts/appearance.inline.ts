@@ -39,6 +39,7 @@ interface AppearanceConfig {
   avatar_shape: string
   avatar_link: string
   social_links: SocialLink[]
+  background: { name: string; light: string; dark: string } | null
 }
 
 let currentConfig: AppearanceConfig | null = null
@@ -122,6 +123,35 @@ function applyTitleText(text: string) {
   const t = text && text.trim() ? text.trim() : ""
   if (!t) return
   if (titleEl.textContent !== t) titleEl.textContent = t
+}
+
+// 背景颜色:覆盖 Quartz 根背景变量 --light。body 背景为 var(--light),覆盖即整站换肤。
+// 利用 :root[saved-theme="dark"] 主题选择器,纯 CSS 自动跟随主题切换,无需 JS 监听。
+// hex 已由后端校验,这里再做字符白名单防注入;某模式颜色为空则不覆盖该模式(保留 Quartz 默认)。
+function applyBackground(bg: { name: string; light: string; dark: string } | null) {
+  const el = document.getElementById("appearance-background") as HTMLStyleElement | null
+  if (!bg || (!bg.light && !bg.dark)) {
+    if (el) el.remove()
+    return
+  }
+  const rules: string[] = []
+  const light = String(bg.light || "").replace(/[^#0-9a-fA-F]/g, "")
+  const dark = String(bg.dark || "").replace(/[^#0-9a-fA-F]/g, "")
+  if (/^#[0-9A-Fa-f]{6}$/.test(light)) rules.push(`:root{--light:${light};}`)
+  if (/^#[0-9A-Fa-f]{6}$/.test(dark)) rules.push(`:root[saved-theme="dark"]{--light:${dark};}`)
+  if (!rules.length) {
+    if (el) el.remove()
+    return
+  }
+  const css = rules.join("")
+  if (!el) {
+    const style = document.createElement("style")
+    style.id = "appearance-background"
+    style.textContent = css
+    document.head.appendChild(style)
+  } else {
+    el.textContent = css
+  }
 }
 
 function applyFavicon(url: string) {
@@ -243,6 +273,7 @@ function applyAll(cfg: AppearanceConfig | null) {
   applyFavicon(cfg.favicon_url)
   applyAvatar(cfg)
   applySocialLinks(cfg.social_links || [])
+  applyBackground(cfg.background)
 }
 
 function applyFromCache() {

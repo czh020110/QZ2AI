@@ -435,9 +435,9 @@ def upsert_github_workflow(
 def get_appearance_config(
     x_admin_token: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """获取外观配置(文件名转 URL,便于后台预览)"""
+    """获取外观配置(含完整背景预设列表,便于后台编辑;文件名转 URL 便于预览)"""
     _verify_admin(x_admin_token)
-    return appearance_mod.get_appearance_public()
+    return appearance_mod.get_appearance_admin()
 
 
 @router.put("/appearance")
