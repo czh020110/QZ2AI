@@ -617,6 +617,192 @@
     color: var(--text-muted);
   }
 
+  .content-visibility-shell { display: flex; flex-direction: column; gap: 18px; }
+  .content-tree-toolbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-bottom: 12px; flex-wrap: wrap;
+  }
+  .content-tree-toolbar-summary { min-width: 180px; }
+  .content-tree-toolbar-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .content-tree-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .content-tree-search-shell {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-input);
+  }
+  .content-tree-search-icon {
+    width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+  .content-tree-search-icon svg { width: 16px; height: 16px; }
+  .content-tree-search {
+    flex: 1;
+    min-width: 120px;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .content-tree-case-btn {
+    height: 28px; min-width: 36px; padding: 0 8px;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+    transition: all var(--transition); font: 600 .72rem 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+  .content-tree-case-btn:hover { color: var(--text-primary); border-color: var(--overlay-border); }
+  .content-tree-case-btn.active {
+    color: var(--text-primary); border-color: var(--text-primary); background: var(--overlay);
+  }
+  .content-tree-search-nav {
+    display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .content-tree-search-count {
+    min-width: 44px; text-align: center; font-size: .72rem; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .content-tree-search-btn {
+    width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+    transition: all var(--transition); font-family: inherit;
+  }
+  .content-tree-search-btn:hover:not(:disabled) { color: var(--text-primary); border-color: var(--overlay-border); }
+  .content-tree-search-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .content-tree-split {
+    display: grid; grid-template-columns: minmax(320px, 1.1fr) minmax(320px, .9fr); gap: 14px;
+    align-items: stretch;
+  }
+  .content-tree-side, .content-preview-side {
+    min-width: 0; display: flex; flex-direction: column;
+  }
+  .content-preview-panel {
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 2px);
+    background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-input) 100%);
+    padding: 12px;
+    height: 560px;
+    min-height: 0;
+    box-shadow: inset 0 1px 0 var(--overlay-soft);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .content-preview-head { display: flex; flex-direction: column; gap: 4px; }
+  .content-preview-path {
+    color: var(--text-muted); font-size: .72rem; font-family: 'JetBrains Mono', monospace;
+    word-break: break-all;
+  }
+  .content-preview-slot {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+  }
+  .content-preview-body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: .78rem/1.65 'JetBrains Mono', monospace;
+    color: var(--text-primary);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  .content-preview-empty {
+    color: var(--text-muted); font-size: .8rem; padding: 16px; text-align: center;
+    border: 1px dashed var(--border); border-radius: 10px; min-height: 120px;
+    width: 100%; height: 100%; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .content-tree-panel {
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 2px);
+    background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-input) 100%);
+    padding: 12px;
+    height: 560px;
+    overflow: auto;
+    box-shadow: inset 0 1px 0 var(--overlay-soft);
+  }
+  .content-tree-node + .content-tree-node { margin-top: 4px; }
+  .content-tree-row {
+    display: grid;
+    grid-template-columns: 20px 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: .82rem;
+    transition: background var(--transition), border-color var(--transition);
+  }
+  .content-tree-row:hover {
+    background: var(--overlay-soft);
+    border-color: var(--overlay-border);
+  }
+  .content-tree-row.content-tree-row--active {
+    background: var(--overlay);
+    border-color: var(--overlay-border);
+  }
+  .content-tree-row.content-tree-row--flash {
+    background: rgba(245, 158, 11, .14);
+    border-color: rgba(245, 158, 11, .35);
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, .18);
+  }
+  .content-tree-toggle {
+    width: 20px; height: 20px; border: 0; background: transparent;
+    color: var(--text-muted); cursor: pointer; font-size: .78rem; font-family: inherit;
+    border-radius: 6px; transition: background var(--transition), color var(--transition);
+  }
+  .content-tree-toggle:hover { background: var(--overlay-soft); color: var(--text-primary); }
+  .content-tree-toggle.placeholder { cursor: default; opacity: .25; }
+  .content-tree-action-btn {
+    width: 20px; height: 20px; border: 0; background: transparent;
+    color: var(--text-muted); cursor: pointer; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    transition: background var(--transition), color var(--transition);
+  }
+  .content-tree-action-btn:hover { background: var(--overlay-soft); color: var(--text-primary); }
+  .content-tree-action-btn svg { width: 14px; height: 14px; }
+  .content-tree-checkbox { width: 16px; height: 16px; accent-color: var(--text-primary); }
+  .content-tree-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .content-tree-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .content-tree-icon {
+    width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); flex-shrink: 0;
+  }
+  .content-tree-icon svg { width: 15px; height: 15px; }
+  .content-tree-name {
+    color: var(--text-primary); font-weight: 500; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .content-tree-kind {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+    font-size: .68rem; color: var(--text-muted); background: var(--bg-deep); flex-shrink: 0;
+  }
+  .content-tree-path {
+    color: var(--text-muted); font-size: .71rem; font-family: 'JetBrains Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .content-tree-children {
+    margin-left: 18px; padding-left: 14px; border-left: 1px dashed var(--border);
+  }
+  .content-tree-empty { color: var(--text-muted); font-size: .8rem; padding: 16px; text-align: center; }
+  .content-selected-list {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+  }
+  .content-selected-pill {
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 10px;
+    font-size: .74rem; color: var(--text-secondary); background: var(--bg-input);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
   /* ===== Toast ===== */
   .toast {
     position: fixed;
@@ -704,6 +890,9 @@
     .page-header { padding: 20px 16px 0; }
     .page-content { padding: 16px; }
     .config-grid { grid-template-columns: 1fr; }
+    .content-tree-split { grid-template-columns: 1fr; }
+    .content-tree-panel { height: auto; max-height: 480px; }
+    .content-preview-panel { height: 260px; }
     .feedback-title { max-width: 140px; }
   }
 
@@ -911,6 +1100,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
       数据同步
     </div>
+    <div class="nav-item" data-tab="content" onclick="switchTab('content')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 6v12"/></svg>
+      内容展示
+    </div>
     <div class="nav-item" data-tab="sync" onclick="switchTab('sync')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 6.5m0 0l3 3-3 3m-3-6l-3 3 3 3"/></svg>
       自动同步
@@ -975,6 +1168,17 @@
       <p>数据目录与远程同步源配置</p>
     </div>
     <div class="page-content" id="syncDataContent">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Content Visibility Tab -->
+  <div id="tab-content" class="hidden">
+    <div class="page-header">
+      <h2>内容展示</h2>
+      <p>选择哪些目录或 Markdown 笔记公开展示并进入 AI 问答检索</p>
+    </div>
+    <div class="page-content" id="contentVisibilityContent">
       <div class="spinner"></div>
     </div>
   </div>
@@ -1044,6 +1248,7 @@ const I18N = {
     "反馈管理": "Feedback",
     "模型配置": "Models",
     "数据同步": "Data Sync",
+    "内容展示": "Content Visibility",
     "自动同步": "Auto Sync",
     "自动通知": "Notifications",
     "安全设置": "Security",
@@ -1057,6 +1262,7 @@ const I18N = {
     "查看和处理用户提交的文档反馈": "Review and handle user-submitted document feedback",
     "LLM、Embedding、Reranker 及超时设置": "LLM, Embedding, Reranker and timeout settings",
     "数据目录与远程同步源配置": "Data directory and remote sync source",
+    "选择哪些目录或 Markdown 笔记公开展示并进入 AI 问答检索": "Choose which folders or Markdown notes are public and searchable by AI Chat",
     "反馈通知与同步通知配置": "Feedback and sync notification settings",
     "Token 与 CORS 安全配置": "Token and CORS security settings",
     "字体、网站图标、头像与社交联系方式(保存后刷新博客可见)": "Fonts, favicon, avatar and social links (refresh blog after save)",
@@ -1120,6 +1326,9 @@ const I18N = {
     "同步": "Sync",
     "同步中": "Syncing",
     "构建中": "Building",
+    "重建成功": "Rebuild succeeded",
+    "重建失败": "Rebuild failed",
+    "已排队": "Queued",
     "空闲": "Idle",
     "同步完成": "Sync complete",
     "同步失败": "Sync failed",
@@ -1145,11 +1354,16 @@ const I18N = {
     "复制链接": "Copy link",
     "已复制": "Copied",
     "复制失败,请手动复制": "Copy failed, please copy manually",
+    "清空该目录内部选中项": "Clear selected items in this folder",
     "字段说明": "Field description",
     "同步状态": "Sync Status",
     "当前状态": "Current Status",
     "最近同步": "Last Sync",
     "上次状态": "Last Status",
+    "失败原因": "Failure Reason",
+    "同步失败": "Sync Failed",
+    "索引失败": "Index Failed",
+    "构建失败": "Build Failed",
     "同步方式": "Sync Mode",
     "同步策略": "Sync Strategy",
     "定时同步": "Scheduled Sync",
@@ -1186,7 +1400,7 @@ const I18N = {
     "仓库中已有博客同步工作流": "Blog sync workflow exists in repo",
     "仓库中尚未创建工作流文件": "No workflow file created yet",
     "GitHub Actions 自动化": "GitHub Actions Automation",
-    "工作流预览（触发路径：根据配置）": "Workflow preview (trigger path: per config)",
+    "工作流预览（触发范围：仓库 push）": "Workflow preview (trigger: repository push)",
     "在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml": "Create/update .github/workflows/blog-sync.yml in the GitHub repo",
     "更新工作流": "Update Workflow",
     "工作流已创建/更新": "Workflow created/updated",
@@ -1248,6 +1462,40 @@ const I18N = {
     "GitHub 同步": "GitHub Sync",
     "敏感": "Sensitive",
     "清除": "Clear",
+    "展示模式": "Display Mode",
+    "兼容旧配置": "Legacy Config",
+    "自定义选择": "Custom Selection",
+    "全部展示": "Show All",
+    "刷新文件树": "Refresh Tree",
+    "清空选择": "Clear Selection",
+    "保存并重建": "Save & Rebuild",
+    "保存后会重建索引和博客": "Saving rebuilds the index and blog",
+    "当前选择": "Current Selection",
+    "搜索文件名称，回车定位": "Search filename, press Enter to locate",
+    "大小写匹配": "Match case",
+    "上一个结果": "Previous result",
+    "下一个结果": "Next result",
+    "原始内容预览": "Raw Markdown Preview",
+    "点击左侧 Markdown 文件查看原始内容预览": "Select a Markdown file on the left to preview raw content",
+    "预览加载中...": "Loading preview...",
+    "文件不存在或不可预览": "File not found or cannot be previewed",
+    "当前结果是目录，仅 Markdown 文件可预览": "This result is a folder; only Markdown files can be previewed",
+    "未找到匹配的文件": "No matching file found",
+    "待同步（手动）": "Pending (manual)",
+    "待同步": "Pending sync",
+    "失败": "Failure",
+    "个路径": " paths",
+    "未选择任何路径": "No paths selected",
+    "文件树为空": "File tree is empty",
+    "文件树过大，已截断显示": "File tree is too large and has been truncated",
+    "只显示目录和 Markdown 文件，不显示笔记内容。未选中的笔记不会发布到博客，也不会进入 AI 问答检索。": "Only folders and Markdown files are shown; note contents are never displayed. Unselected notes are not published to the blog or searchable by AI Chat.",
+    "「兼容旧配置」等价于根目录全量展示；「自定义选择」通过下方文件树勾选公开范围；「全部展示」发布整个笔记库。": "Legacy mode = whole repository root. Custom = select public scope via the file tree below. Show All = publish the entire vault.",
+    "展示范围已保存,正在重建索引和博客": "Display scope saved, rebuilding index and blog",
+    "展示范围已保存,当前有任务执行中,已排队等待应用": "Display scope saved, another job is running and the rebuild has been queued",
+    "正在保存...": "Saving...",
+    "目录": "Folder",
+    "笔记": "Note",
+    "根目录": "Root",
     "操作失败": "Action failed",
     "成功": "Success",
     "建议": "Suggestion",
@@ -1264,6 +1512,7 @@ const I18N = {
     "反馈管理": "フィードバック",
     "模型配置": "モデル",
     "数据同步": "データ同期",
+    "内容展示": "コンテンツ表示",
     "自动同步": "自動同期",
     "自动通知": "通知",
     "安全设置": "セキュリティ",
@@ -1277,6 +1526,7 @@ const I18N = {
     "查看和处理用户提交的文档反馈": "ユーザー提出のドキュメントフィードバックを確認・処理",
     "LLM、Embedding、Reranker 及超时设置": "LLM・Embedding・Rerankerとタイムアウト設定",
     "数据目录与远程同步源配置": "データディレクトリとリモート同期元の設定",
+    "选择哪些目录或 Markdown 笔记公开展示并进入 AI 问答检索": "公開表示し、AIチャット検索に入れるフォルダまたはMarkdownノートを選択",
     "反馈通知与同步通知配置": "フィードバック通知と同期通知の設定",
     "Token 与 CORS 安全配置": "トークンとCORSセキュリティ設定",
     "字体、网站图标、头像与社交联系方式(保存后刷新博客可见)": "フォント・ファビコン・アバター・ソーシャルリンク（保存後ブログ更新で反映）",
@@ -1340,6 +1590,9 @@ const I18N = {
     "同步": "同期",
     "同步中": "同期中",
     "构建中": "構築中",
+    "重建成功": "再構築成功",
+    "重建失败": "再構築失敗",
+    "已排队": "キュー済み",
     "空闲": "アイドル",
     "同步完成": "同期完了",
     "同步失败": "同期失敗",
@@ -1365,11 +1618,15 @@ const I18N = {
     "复制链接": "リンクをコピー",
     "已复制": "コピー済み",
     "复制失败,请手动复制": "コピー失敗、手動でコピーしてください",
+    "清空该目录内部选中项": "このフォルダ内の選択項目をクリア",
     "字段说明": "フィールド説明",
     "同步状态": "同期ステータス",
     "当前状态": "現在のステータス",
     "最近同步": "最終同期",
     "上次状态": "前回ステータス",
+    "失败原因": "失敗原因",
+    "索引失败": "索引失敗",
+    "构建失败": "ビルド失敗",
     "同步方式": "同期方式",
     "同步策略": "同期ストラテジー",
     "定时同步": "定時同期",
@@ -1406,7 +1663,7 @@ const I18N = {
     "仓库中已有博客同步工作流": "ブログ同期ワークフローがリポジトリに存在",
     "仓库中尚未创建工作流文件": "ワークフローファイル未作成",
     "GitHub Actions 自动化": "GitHub Actions 自動化",
-    "工作流预览（触发路径：根据配置）": "ワークフロープレビュー（トリガーパス：設定に基づく）",
+    "工作流预览（触发范围：仓库 push）": "ワークフロープレビュー（トリガー：リポジトリpush）",
     "在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml": "GitHubリポジトリに .github/workflows/blog-sync.yml を作成/更新",
     "更新工作流": "ワークフロー更新",
     "工作流已创建/更新": "ワークフロー作成/更新済み",
@@ -1468,6 +1725,40 @@ const I18N = {
     "GitHub 同步": "GitHub同期",
     "敏感": "機密",
     "清除": "クリア",
+    "展示模式": "表示モード",
+    "兼容旧配置": "旧設定互換",
+    "自定义选择": "カスタム選択",
+    "全部展示": "すべて表示",
+    "刷新文件树": "ツリー更新",
+    "清空选择": "選択クリア",
+    "保存并重建": "保存して再構築",
+    "保存后会重建索引和博客": "保存後、索引とブログを再構築します",
+    "当前选择": "現在の選択",
+    "搜索文件名称，回车定位": "ファイル名を検索して Enter で移動",
+    "大小写匹配": "大文字小文字を区別",
+    "上一个结果": "前の結果",
+    "下一个结果": "次の結果",
+    "原始内容预览": "生Markdownプレビュー",
+    "点击左侧 Markdown 文件查看原始内容预览": "左側の Markdown ファイルを選択して生内容をプレビュー",
+    "预览加载中...": "プレビューを読み込み中...",
+    "文件不存在或不可预览": "ファイルが存在しないか、プレビューできません",
+    "当前结果是目录，仅 Markdown 文件可预览": "この結果はフォルダです。プレビューできるのは Markdown ファイルのみです",
+    "未找到匹配的文件": "一致するファイルが見つかりません",
+    "待同步（手动）": "保留中（手動）",
+    "待同步": "同期待ち",
+    "失败": "失敗",
+    "个路径": " 件のパス",
+    "未选择任何路径": "パス未選択",
+    "文件树为空": "ファイルツリーは空です",
+    "文件树过大，已截断显示": "ファイルツリーが大きすぎるため一部のみ表示",
+    "只显示目录和 Markdown 文件，不显示笔记内容。未选中的笔记不会发布到博客，也不会进入 AI 问答检索。": "フォルダとMarkdownファイルのみ表示し、ノート本文は表示しません。未選択ノートはブログ公開もAIチャット検索もされません。",
+    "「兼容旧配置」等价于根目录全量展示；「自定义选择」通过下方文件树勾选公开范围；「全部展示」发布整个笔记库。": "旧設定互換=リポジトリルート全体。カスタム=下のファイルツリーで公開範囲を選択。すべて表示=ボルト全体を公開。",
+    "展示范围已保存,正在重建索引和博客": "表示範囲を保存、索引とブログを再構築中",
+    "展示范围已保存,当前有任务执行中,已排队等待应用": "表示範囲を保存しました。別の処理が実行中のため、再構築はキューに入りました",
+    "正在保存...": "保存中...",
+    "目录": "フォルダ",
+    "笔记": "ノート",
+    "根目录": "ルート",
     "操作失败": "操作失敗",
     "成功": "成功",
     "建议": "提案",
@@ -1488,6 +1779,7 @@ function t(zh) {
 
 // 遍历 DOM 文本节点与属性,按字典 key 长度降序做包含替换。
 // 长 key 先替换,避免短 key 误替换长 key 的子串;替换后文本为译文,不含中文 key,不会重复匹配。
+// data-no-i18n 区域内保留原始文本,避免路径/文件名/Markdown 正文被误翻译。
 function applyI18n() {
   if (adminLocale === 'zh-CN') return;
   const dict = I18N[adminLocale] || {};
@@ -1501,14 +1793,18 @@ function applyI18n() {
     return r;
   };
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => n.nodeValue && n.nodeValue.trim() && /[一-龥]/.test(n.nodeValue)
-      ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+    acceptNode: (n) => {
+      if (!n.nodeValue || !n.nodeValue.trim() || !/[一-龥]/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+      if (n.parentElement?.closest('[data-no-i18n="true"]')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
   });
   const nodes = [];
   let n;
   while ((n = walker.nextNode())) nodes.push(n);
   nodes.forEach(nd => { nd.nodeValue = replaceText(nd.nodeValue); });
   document.querySelectorAll('[placeholder],[title]').forEach(el => {
+    if (el.closest('[data-no-i18n="true"]')) return;
     ['placeholder', 'title'].forEach(attr => {
       const v = el.getAttribute(attr);
       if (v && /[一-龥]/.test(v)) el.setAttribute(attr, replaceText(v));
@@ -1587,6 +1883,7 @@ function switchTab(tab) {
   document.getElementById('tab-feedback').classList.toggle('hidden', tab !== 'feedback');
   document.getElementById('tab-model').classList.toggle('hidden', tab !== 'model');
   document.getElementById('tab-sync-data').classList.toggle('hidden', tab !== 'sync-data');
+  document.getElementById('tab-content').classList.toggle('hidden', tab !== 'content');
   document.getElementById('tab-notify').classList.toggle('hidden', tab !== 'notify');
   document.getElementById('tab-security').classList.toggle('hidden', tab !== 'security');
   document.getElementById('tab-sync').classList.toggle('hidden', tab !== 'sync');
@@ -1596,6 +1893,7 @@ function switchTab(tab) {
   if (tab === 'feedback') p = loadFeedback();
   else if (tab === 'model') p = loadTabConfig('model', 'modelContent');
   else if (tab === 'sync-data') p = loadTabConfig('sync-data', 'syncDataContent');
+  else if (tab === 'content') p = loadContentVisibility();
   else if (tab === 'notify') p = loadTabConfig('notify', 'notifyContent');
   else if (tab === 'security') p = loadTabConfig('security', 'securityContent');
   else if (tab === 'sync') p = loadSync();
@@ -1705,9 +2003,9 @@ const tabMap = {
   db_path: 'sync-data', chroma_collection: 'sync-data', notes_assets_folders: 'sync-data',
   cos_secret_id: 'sync-data', cos_secret_key: 'sync-data',
   cos_region: 'sync-data', cos_endpoint: 'sync-data',
-  cos_bucket: 'sync-data', notes_cos_prefix: 'sync-data',
+  cos_bucket: 'sync-data',
   github_repo_url: 'sync-data', github_branch: 'sync-data',
-  notes_github_prefix: 'sync-data', github_token: 'sync-data',
+  github_token: 'sync-data',
 
   notify_enabled: 'notify', sync_notify_enabled: 'notify', notify_interval_seconds: 'notify',
   notify_email: 'notify', mail_server: 'notify',
@@ -1735,9 +2033,9 @@ const groupMap = {
   allowed_origins: 'CORS',
   cos_secret_id: 'COS 同步', cos_secret_key: 'COS 同步',
   cos_region: 'COS 同步', cos_endpoint: 'COS 同步',
-  cos_bucket: 'COS 同步', notes_cos_prefix: 'COS 同步',
+  cos_bucket: 'COS 同步',
   github_repo_url: 'GitHub 同步', github_branch: 'GitHub 同步',
-  notes_github_prefix: 'GitHub 同步', github_token: 'GitHub 同步',
+  github_token: 'GitHub 同步',
   notify_enabled: '邮件通知', notify_interval_seconds: '邮件通知',
   sync_notify_enabled: '邮件通知',
   notify_email: '邮件通知', mail_server: '邮件通知',
@@ -1782,10 +2080,8 @@ const fieldLabels = {
   cos_region: { 'en-US': 'COS Region', 'zh-CN': 'COS 地域', 'ja-JP': 'COS リージョン' },
   cos_endpoint: { 'en-US': 'COS Endpoint', 'zh-CN': 'COS Endpoint', 'ja-JP': 'COS Endpoint' },
   cos_bucket: { 'en-US': 'COS Bucket', 'zh-CN': 'COS 存储桶', 'ja-JP': 'COS バケット' },
-  notes_cos_prefix: { 'en-US': 'COS Notes Prefix', 'zh-CN': 'COS 笔记前缀', 'ja-JP': 'COS ノートプレフィックス' },
   github_repo_url: { 'en-US': 'GitHub Repo URL', 'zh-CN': 'GitHub 仓库地址', 'ja-JP': 'GitHub リポジトリURL' },
   github_branch: { 'en-US': 'GitHub Branch', 'zh-CN': 'GitHub 分支', 'ja-JP': 'GitHub ブランチ' },
-  notes_github_prefix: { 'en-US': 'GitHub Notes Prefix', 'zh-CN': 'GitHub 笔记前缀', 'ja-JP': 'GitHub ノートプレフィックス' },
   github_token: { 'en-US': 'GitHub Token', 'zh-CN': 'GitHub Token', 'ja-JP': 'GitHub Token' },
   notify_enabled: { 'en-US': 'Feedback Notification', 'zh-CN': '反馈通知', 'ja-JP': 'フィードバック通知' },
   sync_notify_enabled: { 'en-US': 'Sync Notification', 'zh-CN': '同步通知', 'ja-JP': '同期通知' },
@@ -1808,9 +2104,7 @@ const fieldHints = {
   similarity_top_k: { 'en-US': 'Number of docs recalled by vector search, then cited by LLM. Larger = more complete but slower. Suggest 5 (default).', 'zh-CN': '向量检索召回的文档数量，再交给 LLM 引用。值大召回全但耗时高，建议 5（默认）。', 'ja-JP': 'ベクトル検索のリコール数、LLMが引用。大きいほど網羅的だが遅い。5推奨（デフォルト）。' },
   llm_mock: { 'en-US': 'When on, LLM is not actually called; returns mock responses. For debugging only. Keep off in production (default off).', 'zh-CN': '开启后 LLM 不真实调用，返回模拟响应。仅用于联调调试，生产环境务必关闭（默认关闭）。', 'ja-JP': 'オン時 LLM 実呼び出しなし、モック応答を返す。デバッグ専用。本番ではオフ（デフォルトオフ）。' },
   embedding_batch_size: { 'en-US': 'Batch size per embedding request. Larger = faster but easier to hit rate limits. Keep default 10.', 'zh-CN': '嵌入向量单次请求批量。值大速度快但易触发限流，建议保持默认 10。', 'ja-JP': '埋め込み1リクエストのバッチサイズ。大きいほど高速だがレート制限に注意。デフォルト10推奨。' },
-  notes_assets_folders: { 'en-US': 'Comma-separated asset folder names (default assets). Not indexed as articles, but synced to display article images.', 'zh-CN': '逗号分隔的附件文件夹名（默认 assets）。这些文件夹不会被索引为文章，但会被同步下载以显示文章图片。', 'ja-JP': 'カンマ区切りの添付フォルダ名（デフォルト assets）。記事として索引化されないが、画像表示のため同期される。' },
-  notes_cos_prefix: { 'en-US': 'Path prefix of notes in the COS bucket (e.g. notes/blog). Empty = sync from bucket root.', 'zh-CN': 'COS 存储桶中笔记所在路径前缀（如 notes/blog）。留空表示从桶根目录同步。', 'ja-JP': 'COSバケット内ノートのパスプレフィックス（例 notes/blog）。空=バケットルートから同期。' },
-  notes_github_prefix: { 'en-US': 'Subdirectory of notes in the GitHub repo (e.g. blog/online). Empty = pull from repo root.', 'zh-CN': 'GitHub 仓库内笔记所在子目录（如 blog/online）。留空表示从仓库根目录拉取。', 'ja-JP': 'GitHubリポジトリ内ノートのサブディレクトリ（例 blog/online）。空=リポジトリルートから取得。' },
+  notes_assets_folders: { 'en-US': 'Asset folder names (comma-separated, e.g. assets). Leave empty ONLY if every attachment in your notes is referenced by an absolute/relative path that resolves directly. Filling this handles attachments whose links are bare filenames: files under these folders are excluded from indexing as articles but still copied so images load. Recommended: use the Obsidian "Custom Attachment Location" plugin to unify attachment paths into one fixed-name folder, or "Link Converter" to batch-convert all resource links to absolute/relative paths.', 'zh-CN': '附件文件夹名（逗号分隔，如 assets）。留空仅适用于笔记中所有附件都已用绝对路径或相对路径引用、能直接定位的情况。填写后用于兜底处理链接只写文件名找不到的情况：该文件夹内的资源不会被索引为文章，但会被复制以显示图片。推荐在 Obsidian 中使用「Custom Attachment Location」插件统一附件路径到固定名称文件夹，或用「Link Converter」批量将资源链接转为绝对/相对路径。', 'ja-JP': '添付フォルダ名（カンマ区切り、例 assets）。空欄はノート内の全添付が絶対/相対パスで直接解決できる場合のみ有効。入力するとファイル名のみのリンクを補完：該当フォルダ内は記事として索引化されないが画像表示のため複製される。推奨：Obsidian「Custom Attachment Location」プラグインで添付パスを固定フォルダに統一、または「Link Converter」でリンクを絶対/相対パスに一括変換。' },
   github_token: { 'en-US': 'GitHub Personal Access Token, required for private repos. Use a fine-grained token with read-only repo access.', 'zh-CN': 'GitHub Personal Access Token，私有仓库拉取必需。建议使用 fine-grained token 并仅授予仓库只读权限。', 'ja-JP': 'GitHub PAT、プライベートリポジトリ取得に必須。fine-grained token・読み取り専用推奨。' },
   git_proxy: { 'en-US': 'HTTP proxy for git clone/pull (e.g. http://172.17.0.1:7890). Requires allow-lan on host. Empty = direct.', 'zh-CN': 'git clone/pull 使用的 HTTP 代理（如 http://172.17.0.1:7890）。需先在宿主机开启 allow-lan，留空表示直连。', 'ja-JP': 'git clone/pull の HTTPプロキシ（例 http://172.17.0.1:7890）。ホストで allow-lan 必要、空=直接接続。' },
   git_accelerator: { 'en-US': 'GitHub mirror accelerator prefix (e.g. https://ghfast.top). Use when direct access is unstable. Empty = no acceleration.', 'zh-CN': 'GitHub 加速镜像前缀（如 https://ghfast.top）。国内直连不稳定时使用，留空表示不加速。', 'ja-JP': 'GitHub加速ミラープレフィックス（例 https://ghfast.top）。直接接続不安定時に使用、空=加速なし。' },
@@ -2128,6 +2422,684 @@ async function saveTabConfig(containerId) {
   btn.textContent = '保存配置';
 }
 
+// ===== Content Visibility =====
+let contentTreeData = null;
+let contentTreeToken = '';
+let contentNodeIndex = new Map();
+let contentSelected = new Set();
+let contentExcluded = new Set();
+let contentExpanded = new Set(['']);
+let contentMode = 'legacy';
+let contentSearchQuery = '';
+let contentSearchCaseSensitive = false;
+let contentSearchResults = [];
+let contentSearchIndex = -1;
+let contentSearchHighlightTimer = null;
+let contentPreviewPath = '';
+let contentPreviewContent = '';
+let contentPreviewLoading = false;
+let contentPreviewError = '';
+let contentPreviewRequestId = 0;
+
+async function loadContentVisibility(force = false) {
+  const content = document.getElementById('contentVisibilityContent');
+  const hasContent = content.innerHTML.trim() && !content.querySelector('.spinner');
+
+  if (!force && contentTreeData && contentTreeToken === adminToken && hasContent) {
+    triggerFade(content);
+    return;
+  }
+
+  if (!force && contentTreeData && contentTreeToken === adminToken) {
+    renderContentVisibility();
+    triggerFade(content);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/content/tree`, {
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    contentTreeData = await res.json();
+    contentTreeToken = adminToken;
+    rebuildContentNodeIndex();
+    const visibility = contentTreeData.visibility || {};
+    contentMode = visibility.mode || 'legacy';
+    const selected = contentMode === 'custom' ? (visibility.selected || []) : (visibility.effective_selected || ['']);
+    contentSelected = new Set(selected);
+    contentExcluded = new Set(contentMode === 'custom' ? (visibility.excluded || []) : []);
+    contentExpanded = new Set(['']);
+    if (selected.length) selected.forEach(p => expandAncestors(p));
+    renderContentVisibility();
+    triggerFade(content);
+  } catch (e) {
+    content.innerHTML = `<div class="empty-state"><p>加载失败：${e.message}</p></div>`;
+  }
+}
+
+function expandAncestors(path) {
+  const parts = String(path || '').split('/').filter(Boolean);
+  let cur = '';
+  contentExpanded.add('');
+  for (let i = 0; i < parts.length - 1; i++) {
+    cur = cur ? `${cur}/${parts[i]}` : parts[i];
+    contentExpanded.add(cur);
+  }
+}
+
+function rebuildContentNodeIndex() {
+  contentNodeIndex = new Map();
+  const walk = (node) => {
+    if (!node) return;
+    contentNodeIndex.set(node.path || '', node);
+    (node.children || []).forEach(walk);
+  };
+  if (contentTreeData && contentTreeData.root) walk(contentTreeData.root);
+  if (contentPreviewPath && !contentNodeIndex.has(contentPreviewPath)) {
+    contentPreviewRequestId += 1;
+    setContentPreviewState();
+  }
+}
+
+function renderContentVisibility() {
+  const content = document.getElementById('contentVisibilityContent');
+  if (!contentTreeData) {
+    content.innerHTML = `<div class="empty-state"><p>配置未加载</p></div>`;
+    return;
+  }
+  content.innerHTML = `
+    <div class="content-visibility-shell">
+      <div class="config-section">
+        <div class="config-section-title">展示模式</div>
+        <div style="font-size:.78rem;color:var(--text-secondary);line-height:1.7;margin-bottom:14px">
+          只显示目录和 Markdown 文件，不显示笔记内容。未选中的笔记不会发布到博客，也不会进入 AI 问答检索。<br>
+          「兼容旧配置」等价于根目录全量展示；「自定义选择」通过下方文件树勾选公开范围；「全部展示」发布整个笔记库。
+        </div>
+        <div class="filter-bar" style="margin-bottom:0">
+          ${contentModeButton('legacy', '兼容旧配置')}
+          ${contentModeButton('custom', '自定义选择')}
+          ${contentModeButton('all', '全部展示')}
+        </div>
+      </div>
+
+      <div class="config-section">
+        <div class="content-tree-toolbar">
+          <div class="content-tree-toolbar-summary">
+            <div class="config-section-title" style="margin-bottom:4px">当前选择</div>
+            <div id="contentSelectionCount" style="font-size:.75rem;color:var(--text-muted)"></div>
+          </div>
+          <div class="content-tree-toolbar-buttons">
+            <button class="action-btn" onclick="loadContentVisibility(true)">刷新文件树</button>
+            <button class="action-btn" onclick="clearContentSelection()">清空选择</button>
+          </div>
+        </div>
+        <div class="content-selected-list" id="contentSelectedList"></div>
+      </div>
+
+      <div class="content-tree-wrap">
+        <div class="content-tree-search-shell">
+          <span class="content-tree-search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11.1 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.589 3.588A2.4 2.4 0 0 1 20 8v3.25" />
+              <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+              <path d="m21 22-2.88-2.88" />
+              <circle cx="16" cy="17" r="3" />
+            </svg>
+          </span>
+          <input class="config-input content-tree-search" id="contentTreeSearchInput" type="text" name="content-tree-search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" value="${bgEscAttr(contentSearchQuery)}" placeholder="搜索文件名称，回车定位" oninput="onContentSearchInput(this.value)" onkeydown="onContentSearchKeydown(event)">
+          <button type="button" class="content-tree-case-btn ${contentSearchCaseSensitive ? 'active' : ''}" onclick="toggleContentSearchCase()" title="大小写匹配" aria-label="大小写匹配">Aa</button>
+          <div class="content-tree-search-nav">
+            <button type="button" class="content-tree-search-btn" id="contentTreeSearchPrevBtn" onclick="stepContentSearch(-1)" title="上一个结果" aria-label="上一个结果">↑</button>
+            <button type="button" class="content-tree-search-btn" id="contentTreeSearchNextBtn" onclick="stepContentSearch(1)" title="下一个结果" aria-label="下一个结果">↓</button>
+            <span class="content-tree-search-count" id="contentTreeSearchCount"></span>
+          </div>
+        </div>
+        <div class="content-tree-split">
+          <div class="content-tree-side">
+            <div class="content-tree-panel" id="contentTreePanel"></div>
+            <div id="contentTreeNotice" style="font-size:.72rem;color:var(--dismissed);margin-top:8px"></div>
+          </div>
+          <div class="content-preview-side">
+            <div class="content-preview-panel">
+              <div class="content-preview-head">
+                <div class="config-section-title">原始内容预览</div>
+                <div class="content-preview-path" id="contentPreviewPath" data-no-i18n="true"></div>
+              </div>
+              <div class="content-preview-slot" id="contentPreviewBody"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-footer">
+        <button class="btn-save" id="saveContentVisibilityBtn" onclick="saveContentVisibility()">保存并重建</button>
+        <span class="save-hint">保存后会重建索引和博客</span>
+        <span id="contentRebuildStatus" class="tag" style="display:none;margin-left:8px"></span>
+      </div>
+    </div>
+  `;
+  updateContentSelectedPreview();
+  refreshContentSearchResults(false);
+  updateContentTreeDom(false);
+  applyI18n();
+  pollContentRebuildStatus();
+}
+
+function renderContentTreeMarkup() {
+  return contentTreeData?.root ? renderContentNode(contentTreeData.root, 0) : `<div class="content-tree-empty">文件树为空</div>`;
+}
+
+function updateContentTreeDom(preserveScroll = true) {
+  const panel = document.getElementById('contentTreePanel');
+  const notice = document.getElementById('contentTreeNotice');
+  if (!panel) return;
+  const prevScrollTop = preserveScroll ? panel.scrollTop : 0;
+  panel.innerHTML = renderContentTreeMarkup();
+  if (notice) notice.textContent = contentTreeData?.truncated ? '文件树过大，已截断显示' : '';
+  syncContentCheckboxStates();
+  if (preserveScroll) panel.scrollTop = prevScrollTop;
+  updateContentSearchUi();
+  renderContentPreview();
+  syncContentActiveRow();
+  applyI18n();
+}
+
+function setContentPreviewState({ path = '', content = '', loading = false, error = '' } = {}) {
+  contentPreviewPath = path;
+  contentPreviewContent = content;
+  contentPreviewLoading = loading;
+  contentPreviewError = error;
+}
+
+function syncContentActiveRow() {
+  const panel = document.getElementById('contentTreePanel');
+  if (!panel) return;
+  panel.querySelectorAll('.content-tree-row--active').forEach(row => row.classList.remove('content-tree-row--active'));
+  if (!contentPreviewPath) return;
+  const node = Array.from(panel.querySelectorAll('.content-tree-node')).find(el => el.dataset.path === contentPreviewPath && el.dataset.type === 'file');
+  const row = node ? node.querySelector('.content-tree-row') : null;
+  if (row) row.classList.add('content-tree-row--active');
+}
+
+function renderContentPreview() {
+  const pathEl = document.getElementById('contentPreviewPath');
+  const bodyEl = document.getElementById('contentPreviewBody');
+  if (!bodyEl) return;
+  if (pathEl) pathEl.textContent = contentPreviewPath || '';
+  if (!contentPreviewPath) {
+    bodyEl.innerHTML = `<div class="content-preview-empty">${esc(t('点击左侧 Markdown 文件查看原始内容预览'))}</div>`;
+    return;
+  }
+  if (contentPreviewLoading) {
+    bodyEl.innerHTML = `<div class="content-preview-empty">${esc(t('预览加载中...'))}</div>`;
+    return;
+  }
+  if (contentPreviewError) {
+    bodyEl.innerHTML = `<div class="content-preview-empty">${esc(contentPreviewError)}</div>`;
+    return;
+  }
+  bodyEl.innerHTML = `<pre class="content-preview-body" data-no-i18n="true">${esc(contentPreviewContent)}</pre>`;
+}
+
+async function previewContentPath(path) {
+  const node = contentNodeIndex.get(path) || null;
+  if (!node) {
+    contentPreviewRequestId += 1;
+    setContentPreviewState({ path, content: '', loading: false, error: t('文件不存在或不可预览') });
+    renderContentPreview();
+    syncContentActiveRow();
+    applyI18n();
+    return;
+  }
+  if (node.type !== 'file') {
+    contentPreviewRequestId += 1;
+    setContentPreviewState({ path, content: '', loading: false, error: t('当前结果是目录，仅 Markdown 文件可预览') });
+    renderContentPreview();
+    syncContentActiveRow();
+    applyI18n();
+    return;
+  }
+  const requestId = ++contentPreviewRequestId;
+  setContentPreviewState({ path, content: '', loading: true, error: '' });
+  renderContentPreview();
+  syncContentActiveRow();
+  applyI18n();
+  try {
+    const res = await fetch(`${API_BASE}/content/file?path=${encodeURIComponent(path)}`, {
+      headers: { 'X-Admin-Token': adminToken }
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status}`);
+    }
+    const data = await res.json();
+    if (requestId !== contentPreviewRequestId) return;
+    setContentPreviewState({ path, content: typeof data.content === 'string' ? data.content : '', loading: false, error: '' });
+  } catch (e) {
+    if (requestId !== contentPreviewRequestId) return;
+    setContentPreviewState({ path, content: '', loading: false, error: t('文件不存在或不可预览') });
+  }
+  if (requestId !== contentPreviewRequestId) return;
+  renderContentPreview();
+  syncContentActiveRow();
+  applyI18n();
+}
+
+function focusContentPath(path) {
+  const panel = document.getElementById('contentTreePanel');
+  if (!panel) return;
+  const node = Array.from(panel.querySelectorAll('.content-tree-node')).find(el => el.dataset.path === path);
+  const row = node ? node.querySelector('.content-tree-row') : null;
+  if (!row) return;
+  const panelRect = panel.getBoundingClientRect();
+  const rowRect = row.getBoundingClientRect();
+  const targetTop = panel.scrollTop + (rowRect.top - panelRect.top) - (panel.clientHeight / 2) + (rowRect.height / 2);
+  panel.scrollTop = Math.max(0, targetTop);
+  row.classList.add('content-tree-row--flash');
+  clearTimeout(contentSearchHighlightTimer);
+  contentSearchHighlightTimer = setTimeout(() => row.classList.remove('content-tree-row--flash'), 1800);
+}
+
+function refreshContentSearchResults(resetIndex = true) {
+  const raw = String(contentSearchQuery || '').trim();
+  const q = contentSearchCaseSensitive ? raw : raw.toLowerCase();
+  if (!q) {
+    contentSearchResults = [];
+    contentSearchIndex = -1;
+    updateContentSearchUi();
+    return [];
+  }
+  const nodes = Array.from(contentNodeIndex.values()).filter(node => {
+    if (!(node.path || '')) return false;
+    const name = contentSearchCaseSensitive ? (node.name || '') : (node.name || '').toLowerCase();
+    return name.includes(q);
+  });
+  nodes.sort((a, b) => {
+    const aName = contentSearchCaseSensitive ? (a.name || '') : (a.name || '').toLowerCase();
+    const bName = contentSearchCaseSensitive ? (b.name || '') : (b.name || '').toLowerCase();
+    const aExact = aName === q ? 0 : 1;
+    const bExact = bName === q ? 0 : 1;
+    const aStarts = aName.startsWith(q) ? 0 : 1;
+    const bStarts = bName.startsWith(q) ? 0 : 1;
+    const aFile = a.type === 'file' ? 0 : 1;
+    const bFile = b.type === 'file' ? 0 : 1;
+    const aDepth = (a.path || '').split('/').length;
+    const bDepth = (b.path || '').split('/').length;
+    return aExact - bExact || aStarts - bStarts || aFile - bFile || aDepth - bDepth || (a.path || '').localeCompare(b.path || '');
+  });
+  contentSearchResults = nodes.map(node => node.path || '');
+  if (!contentSearchResults.length) {
+    contentSearchIndex = -1;
+  } else if (resetIndex || contentSearchIndex < 0 || contentSearchIndex >= contentSearchResults.length) {
+    contentSearchIndex = 0;
+  }
+  updateContentSearchUi();
+  return contentSearchResults;
+}
+
+function updateContentSearchUi() {
+  const countEl = document.getElementById('contentTreeSearchCount');
+  const prevBtn = document.getElementById('contentTreeSearchPrevBtn');
+  const nextBtn = document.getElementById('contentTreeSearchNextBtn');
+  const caseBtn = document.querySelector('.content-tree-case-btn');
+  const hasQuery = !!String(contentSearchQuery || '').trim();
+  if (countEl) countEl.textContent = hasQuery && contentSearchResults.length ? `${contentSearchIndex + 1}/${contentSearchResults.length}` : (hasQuery ? '0/0' : '');
+  if (prevBtn) prevBtn.disabled = contentSearchResults.length <= 1;
+  if (nextBtn) nextBtn.disabled = contentSearchResults.length <= 1;
+  if (caseBtn) caseBtn.classList.toggle('active', contentSearchCaseSensitive);
+}
+
+function onContentSearchInput(value) {
+  contentSearchQuery = value;
+  refreshContentSearchResults(true);
+}
+
+function toggleContentSearchCase() {
+  contentSearchCaseSensitive = !contentSearchCaseSensitive;
+  refreshContentSearchResults(true);
+}
+
+function locateContentSearchResult(index) {
+  if (!contentSearchResults.length) return false;
+  contentSearchIndex = ((index % contentSearchResults.length) + contentSearchResults.length) % contentSearchResults.length;
+  const path = contentSearchResults[contentSearchIndex] || '';
+  expandAncestors(path);
+  updateContentTreeDom(false);
+  focusContentPath(path);
+  previewContentPath(path);
+  return true;
+}
+
+function stepContentSearch(delta) {
+  refreshContentSearchResults(false);
+  if (!contentSearchResults.length) {
+    if (String(contentSearchQuery || '').trim()) showToast('未找到匹配的文件', 'info');
+    return;
+  }
+  locateContentSearchResult(contentSearchIndex + delta);
+}
+
+function onContentSearchKeydown(e) {
+  if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  refreshContentSearchResults(false);
+  if (!contentSearchResults.length) {
+    showToast('未找到匹配的文件', 'info');
+    return;
+  }
+  if (e.key === 'ArrowUp') {
+    locateContentSearchResult(contentSearchIndex - 1);
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    locateContentSearchResult(contentSearchIndex + 1);
+    return;
+  }
+  locateContentSearchResult(contentSearchIndex < 0 ? 0 : contentSearchIndex);
+}
+
+function contentModeButton(mode, label) {
+  return `<button type="button" class="filter-btn ${contentMode === mode ? 'active' : ''}" onclick="setContentMode('${mode}')">${label}</button>`;
+}
+
+function setContentMode(mode) {
+  contentMode = mode;
+  if (mode === 'all') contentSelected = new Set(['']);
+  else if (mode === 'legacy') contentSelected = new Set(['']);
+  contentExcluded = new Set();
+  renderContentVisibility();
+}
+
+function clearContentSelection() {
+  contentMode = 'custom';
+  contentSelected = new Set();
+  contentExcluded = new Set();
+  updateContentSelectedPreview();
+  updateContentTreeDom();
+}
+
+function renderContentNode(node, depth) {
+  const path = node.path || '';
+  const pathArg = JSON.stringify(path).replace(/"/g, '&quot;');
+  const isDir = node.type === 'directory';
+  const children = node.children || [];
+  const expanded = contentExpanded.has(path);
+  const label = path ? node.name : t('根目录');
+  const rowClass = `content-tree-row${!isDir && contentPreviewPath === path ? ' content-tree-row--active' : ''}`;
+  const icon = isDir
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 6v12"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
+  const typeText = isDir ? t('目录') : t('笔记');
+  const showClearBtn = isDir && hasSelectedDescendant(node);
+  const clearBtn = showClearBtn
+    ? `<button type="button" class="content-tree-action-btn" onclick="clearContentDescendants(${pathArg});event.stopPropagation();" title="清空该目录内部选中项" aria-label="清空该目录内部选中项"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 22-1-4"></path><path d="M19 14a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1"></path><path d="M19 14H5l-1.973 6.767A1 1 0 0 0 4 22h16a1 1 0 0 0 .973-1.233z"></path><path d="m8 22 1-4"></path></svg></button>`
+    : '';
+  return `<div class="content-tree-node" data-path="${esc(path)}" data-type="${esc(node.type)}">
+    <div class="${rowClass}" style="padding-left:${Math.min(depth, 8) * 8}px">
+      <button type="button" class="content-tree-toggle ${isDir && children.length ? '' : 'placeholder'}" ${isDir && children.length ? `onclick="toggleContentExpand(${pathArg});event.stopPropagation();"` : ''}>${isDir ? (expanded ? '▾' : '▸') : '·'}</button>
+      <input class="content-tree-checkbox" type="checkbox" data-path="${esc(path)}" data-type="${esc(node.type)}" onchange="toggleContentSelection(${pathArg}, this.checked)" onclick="event.stopPropagation()">
+      <div class="content-tree-main" ${!isDir ? `role="button" tabindex="0" onclick="previewContentPath(${pathArg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();previewContentPath(${pathArg})}"` : ''}>
+        <div class="content-tree-title">
+          <span class="content-tree-icon">${icon}</span>
+          <span class="content-tree-name" data-no-i18n="true">${esc(label)}</span>
+          <span class="content-tree-kind">${typeText}</span>
+          ${clearBtn}
+        </div>
+        <div class="content-tree-path" data-no-i18n="true">${path ? esc(path) : esc(t('根目录'))}</div>
+      </div>
+    </div>
+    ${isDir && expanded ? `<div class="content-tree-children">${children.length ? children.map(c => renderContentNode(c, depth + 1)).join('') : `<div class="content-tree-empty">文件树为空</div>`}</div>` : ''}
+  </div>`;
+}
+
+function toggleContentExpand(path) {
+  if (contentExpanded.has(path)) contentExpanded.delete(path);
+  else contentExpanded.add(path);
+  updateContentTreeDom();
+}
+
+function collectDescendantPaths(node) {
+  const result = [];
+  const walk = (current) => {
+    (current?.children || []).forEach(child => {
+      if (child && typeof child.path === 'string' && child.path) result.push(child.path);
+      walk(child);
+    });
+  };
+  walk(node);
+  return result;
+}
+
+function findSelectedAncestor(path) {
+  if (!path) return contentSelected.has('') ? '' : null;
+  if (contentSelected.has('')) return '';
+  const parts = String(path || '').split('/').filter(Boolean);
+  for (let i = parts.length - 1; i > 0; i--) {
+    const ancestor = parts.slice(0, i).join('/');
+    if (contentSelected.has(ancestor)) return ancestor;
+  }
+  return null;
+}
+
+function materializeFolderSelection(path) {
+  const node = contentNodeIndex.get(path) || null;
+  if (!node || node.type !== 'directory') return false;
+  contentSelected.delete(path);
+  collectDescendantPaths(node).forEach(descendant => contentSelected.add(descendant));
+  return true;
+}
+
+function clearContentDescendants(path) {
+  contentMode = 'custom';
+  for (const p of Array.from(contentSelected)) {
+    if (!p) continue;
+    if (path === '' || p.startsWith(path + '/')) contentSelected.delete(p);
+  }
+  for (const p of Array.from(contentExcluded)) {
+    if (!p) continue;
+    if (path === '' || p.startsWith(path + '/')) contentExcluded.delete(p);
+  }
+  contentSelected = new Set(compressContentSelection(Array.from(contentSelected)));
+  syncContentCheckboxStates();
+  updateContentSelectedPreview();
+}
+
+function toggleContentSelection(path, checked) {
+  contentMode = 'custom';
+  const node = contentNodeIndex.get(path) || null;
+  if (checked) {
+    // 勾选：若被排除则取消排除（父文件夹保持选中）；否则加入 selected
+    if (isContentExcluded(path)) {
+      removeContentExclusion(path);
+    } else {
+      contentSelected.add(path);
+    }
+  } else {
+    const explicitSelected = contentSelected.has(path);
+    const implicitSelected = !explicitSelected && isContentSelected(path);
+    if (node?.type === 'directory' && explicitSelected) {
+      // 取消显式选中的文件夹：materialize（隐藏父层级，保留子项选中）
+      materializeFolderSelection(path);
+    } else if (implicitSelected) {
+      // 取消隐式选中（祖先 selected 带出）：加入 excluded，祖先保持选中
+      contentExcluded.add(path);
+      // 清理被该项覆盖的子项 excluded（冗余）
+      for (const p of Array.from(contentExcluded)) {
+        if (path !== p && p.startsWith(path + '/')) contentExcluded.delete(p);
+      }
+    } else {
+      // 显式选中的文件/文件夹：从 selected 删除
+      contentSelected.delete(path);
+      if (node?.type === 'directory') {
+        for (const p of Array.from(contentSelected)) {
+          if (path === '' || p.startsWith(path + '/')) contentSelected.delete(p);
+        }
+      }
+    }
+  }
+  contentSelected = new Set(compressContentSelection(Array.from(contentSelected)));
+  syncContentCheckboxStates();
+  updateContentSelectedPreview();
+}
+
+function compressContentSelection(paths) {
+  const sorted = Array.from(new Set(paths)).sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b));
+  const result = [];
+  for (const p of sorted) {
+    if (p === '') return [''];
+    if (result.some(parent => parent === '' || p.startsWith(parent + '/'))) continue;
+    result.push(p);
+  }
+  return result;
+}
+
+function isContentExcluded(path) {
+  if (contentExcluded.has(path)) return true;
+  return Array.from(contentExcluded).some(p => p && path.startsWith(p + '/'));
+}
+
+function removeContentExclusion(path) {
+  // 移除自身及覆盖该路径的祖先 excluded，让该路径重新被选中（父文件夹保持选中）
+  contentExcluded.delete(path);
+  const parts = String(path || '').split('/').filter(Boolean);
+  for (let i = parts.length - 1; i > 0; i--) {
+    const ancestor = parts.slice(0, i).join('/');
+    if (contentExcluded.has(ancestor)) contentExcluded.delete(ancestor);
+  }
+}
+
+function isContentSelected(path) {
+  if (isContentExcluded(path)) return false;
+  if (contentSelected.has('')) return true;
+  if (contentSelected.has(path)) return true;
+  return Array.from(contentSelected).some(p => p && (path === p || path.startsWith(p + '/')));
+}
+
+function hasSelectedDescendant(node) {
+  const path = node.path || '';
+  return Array.from(contentSelected).some(p => p && p.startsWith(path ? path + '/' : ''));
+}
+
+function syncContentCheckboxStates() {
+  if (!contentTreeData) return;
+  document.querySelectorAll('.content-tree-checkbox').forEach(cb => {
+    const path = cb.dataset.path || '';
+    const node = contentNodeIndex.get(path) || null;
+    const selected = isContentSelected(path);
+    cb.checked = selected;
+    cb.indeterminate = !selected && node && node.type === 'directory' && hasSelectedDescendant(node);
+  });
+}
+
+function updateContentSelectedPreview() {
+  const pills = document.getElementById('contentSelectedList');
+  const count = document.getElementById('contentSelectionCount');
+  const selected = compressContentSelection(Array.from(contentSelected));
+  if (count) count.textContent = selected.length ? `${selected.length} 个路径` : '未选择任何路径';
+  if (!pills) {
+    applyI18n();
+    return;
+  }
+  pills.innerHTML = selected.length
+    ? selected.map(p => `<span class="content-selected-pill" data-no-i18n="true">${esc(p || t('根目录'))}</span>`).join('')
+    : `<span style="font-size:.78rem;color:var(--text-muted)">未选择任何路径</span>`;
+  applyI18n();
+}
+
+async function saveContentVisibility() {
+  const btn = document.getElementById('saveContentVisibilityBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '正在保存...';
+  try {
+    const selected = compressContentSelection(Array.from(contentSelected));
+    const excluded = Array.from(contentExcluded);
+    const res = await fetch(`${API_BASE}/content/visibility`, {
+      method: 'PUT',
+      headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: contentMode, selected, excluded })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `${res.status}`);
+    }
+    const data = await res.json();
+    showToast(data.message || '展示范围已保存,正在重建索引和博客', 'success');
+    await loadContentVisibility();
+    startContentRebuildPolling();
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '保存并重建';
+    applyI18n();
+  }
+}
+
+let contentRebuildPollTimer = null;
+
+function renderContentRebuildStatus(status) {
+  const el = document.getElementById('contentRebuildStatus');
+  if (!el) return;
+  const syncing = !!status.syncing;
+  const building = !!status.building;
+  const queued = !!status.content_visibility_pending;
+  const last = status.last_sync_status || '';
+  const detail = String(status.last_sync_detail || '').trim();
+  if (syncing || building) {
+    el.style.display = 'inline-block';
+    el.className = 'tag tag-pending';
+    el.textContent = t(building ? '构建中' : '同步中') + '...';
+    el.title = '';
+    return;
+  }
+  if (queued) {
+    el.style.display = 'inline-block';
+    el.className = 'tag tag-suggestion';
+    el.textContent = t('已排队');
+    el.title = '';
+    return;
+  }
+  if (last === 'success') {
+    el.style.display = 'inline-block';
+    el.className = 'tag tag-resolved';
+    el.textContent = t('重建成功');
+    el.title = '';
+    return;
+  }
+  if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') {
+    el.style.display = 'inline-block';
+    el.className = 'tag tag-error';
+    el.textContent = t('重建失败');
+    el.title = detail;
+    return;
+  }
+  el.style.display = 'none';
+  el.textContent = '';
+  el.title = '';
+}
+
+async function pollContentRebuildStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/sync-status`, { headers: { 'X-Admin-Token': adminToken } });
+    if (!res.ok) return;
+    const status = await res.json();
+    renderContentRebuildStatus(status);
+    // 排队的重建（content_visibility_pending）尚未开始，需继续轮询直到它真正跑完
+    if (!status.syncing && !status.building && !status.content_visibility_pending) {
+      clearInterval(contentRebuildPollTimer);
+      contentRebuildPollTimer = null;
+    }
+  } catch { /* ignore */ }
+}
+
+function startContentRebuildPolling() {
+  if (contentRebuildPollTimer) clearInterval(contentRebuildPollTimer);
+  pollContentRebuildStatus();
+  contentRebuildPollTimer = setInterval(pollContentRebuildStatus, 3000);
+}
+
 // ===== Sync Status =====
 let syncPollTimer = null;
 
@@ -2162,24 +3134,30 @@ async function loadSync(force = false) {
   syncPollTimer = setInterval(pollSyncStatus, 5000);
 }
 
-// 状态推导：优先 同步中/构建中 → 手动待同步（manual_trigger，等用户点按钮）→ 10秒内最近结果 → 空闲
+// 状态推导：优先 同步中/构建中 → 待同步（手动/自动/失败待重试）→ 10秒内最近成功结果 → 空闲
 function deriveSyncState(status) {
-  // 当前进行中的状态
+  // 当前进行中的状态（building 可能由独立重建触发，syncing=false 也算构建中）
   if (status.syncing && status.building) return { label: '构建中', cls: 'tag-pending' };
   if (status.syncing) return { label: '同步中', cls: 'tag-pending' };
+  if (status.building) return { label: '构建中', cls: 'tag-pending' };
 
-  // 手动待同步：已接收 webhook 但 syncer 不会自动拾取，等待用户点按钮触发
-  if (status.manual_trigger && status.pending) return { label: '待同步（手动）', cls: 'tag-suggestion' };
+  // 待执行：手动模式待用户点按钮，或自动/定时模式处于 debounce/pending 窗口
+  if (status.pending) {
+    if (status.manual_trigger) return { label: '待同步（手动）', cls: 'tag-suggestion' };
+    return { label: '待同步', cls: 'tag-suggestion' };
+  }
 
-  // 最近完成结果仅展示 10 秒，之后回落空闲；上次状态由独立的 lastSyncStatus 标签永久记录
+  // 上次失败后当前并非真正“空闲”，而是等待用户/下一次触发重新同步
   const last = status.last_sync_status || '';
+  if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') {
+    return { label: '待同步', cls: 'tag-suggestion' };
+  }
+
+  // 最近成功结果仅展示 10 秒，之后回落空闲；失败详情由 Last Status 永久记录
   const lastTime = status.last_sync_at;
-  if (last && lastTime && !status.pending) {
+  if (last === 'success' && lastTime) {
     const elapsed = Date.now() - new Date(lastTime).getTime();
-    if (elapsed < 10000) {
-      if (last === 'success') return { label: '同步完成', cls: 'tag-resolved' };
-      if (last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed') return { label: '同步失败', cls: 'tag-error' };
-    }
+    if (elapsed < 10000) return { label: '同步完成', cls: 'tag-resolved' };
   }
 
   return { label: '空闲', cls: 'tag-resolved' };
@@ -2190,12 +3168,24 @@ function lastStatusBadge(status) {
   const last = status.last_sync_status || '';
   if (!last) return { label: '—', cls: 'tag-resolved' };
   const map = {
-    success: { label: 'success', cls: 'tag-resolved' },
-    sync_failed: { label: 'failure', cls: 'tag-error' },
-    reindex_failed: { label: 'failure', cls: 'tag-error' },
-    build_failed: { label: 'failure', cls: 'tag-error' },
+    success: { label: '成功', cls: 'tag-resolved' },
+    sync_failed: { label: '同步失败', cls: 'tag-error' },
+    reindex_failed: { label: '索引失败', cls: 'tag-error' },
+    build_failed: { label: '构建失败', cls: 'tag-error' },
   };
   return map[last] || { label: last, cls: 'tag-other' };
+}
+
+function updateSyncFailureDetail(status) {
+  const wrap = document.getElementById('syncLastDetailWrap');
+  const detailEl = document.getElementById('syncLastDetail');
+  if (!wrap || !detailEl) return;
+  const last = status.last_sync_status || '';
+  const failed = last === 'sync_failed' || last === 'reindex_failed' || last === 'build_failed';
+  const detail = String(status.last_sync_detail || '').trim();
+  const visible = failed && !!detail;
+  wrap.style.display = visible ? 'block' : 'none';
+  detailEl.textContent = visible ? detail : '';
 }
 
 async function pollSyncStatus() {
@@ -2210,14 +3200,22 @@ async function pollSyncStatus() {
     if (statusEl) {
       const cur = deriveSyncState(status);
       statusEl.className = `tag ${cur.cls}`;
-      statusEl.textContent = cur.label;
+      statusEl.textContent = t(cur.label);
     }
     if (lastEl) lastEl.textContent = status.last_sync_at ? formatTime(status.last_sync_at) : '—';
     if (countEl) countEl.textContent = status.event_count || 0;
     if (lastStatusEl) {
       const ls = lastStatusBadge(status);
       lastStatusEl.className = `tag ${ls.cls}`;
-      lastStatusEl.textContent = ls.label;
+      lastStatusEl.textContent = ls.label === '—' ? '—' : t(ls.label);
+    }
+    updateSyncFailureDetail(status);
+    const triggerBtn = document.getElementById('syncTriggerBtn');
+    if (triggerBtn) {
+      triggerBtn.disabled = !!status.syncing;
+      triggerBtn.textContent = status.syncing
+        ? (status.building ? `${t('构建中')}...` : `${t('同步中')}...`)
+        : t('手动触发同步');
     }
   } catch { /* ignore */ }
 }
@@ -2229,10 +3227,12 @@ function renderSync(status, config) {
   const isBool = (v) => v === true || v === 'True' || v === 'true';
 
   const derived = deriveSyncState(status);
-  const stateLabel = derived.label;
+  const stateLabel = t(derived.label);
   const stateCls = derived.cls;
   const lastStatusDerived = lastStatusBadge(status);
-  const lastStatusLabel = lastStatusDerived.label;
+  const lastStatusLabel = lastStatusDerived.label === '—' ? '—' : t(lastStatusDerived.label);
+  const lastSyncDetail = String(status.last_sync_detail || '').trim();
+  const lastSyncFailed = status.last_sync_status === 'sync_failed' || status.last_sync_status === 'reindex_failed' || status.last_sync_status === 'build_failed';
 
   const remoteTypVal = findVal('remote_type') || 'cos';
   // GitHub 走 push 触发的自动同步，COS 走定时轮询：同一开关在两种模式下语义不同
@@ -2316,9 +3316,13 @@ function renderSync(status, config) {
           <span id="syncLastStatus" class="tag ${lastStatusDerived.cls}" style="margin-top:4px;display:inline-block">${lastStatusLabel}</span>
         </div>
       </div>
+      <div id="syncLastDetailWrap" style="${lastSyncFailed && lastSyncDetail ? '' : 'display:none;'}margin:-4px 0 16px">
+        <div class="config-label" style="margin-bottom:6px">${t('失败原因')}</div>
+        <div id="syncLastDetail" data-no-i18n="true" style="font-size:.78rem;line-height:1.65;color:var(--text-secondary);background:var(--bg-input);border:1px solid var(--border);border-radius:10px;padding:10px 12px;white-space:pre-wrap;word-break:break-word">${esc(lastSyncDetail)}</div>
+      </div>
       <div style="display:flex;gap:12px;align-items:center">
-        <button class="btn-save" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
-          ${status.syncing ? (status.building ? '构建中...' : '同步中...') : '手动触发同步'}
+        <button class="btn-save" id="syncTriggerBtn" onclick="triggerSync()" ${status.syncing ? 'disabled' : ''}>
+          ${status.syncing ? (status.building ? `${t('构建中')}...` : `${t('同步中')}...`) : t('手动触发同步')}
         </button>
         <span class="save-hint">流程：同步中（远程拉取）→ 构建中（索引+Quartz）→ 完成状态停留10秒 → 空闲；上次状态永久记录在「上次状态」标签</span>
       </div>
@@ -2438,7 +3442,7 @@ async function triggerSync() {
     const res = await fetch(`${API_BASE}/sync-status`, {
       method: 'POST',
       headers: { 'X-Admin-Token': adminToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pending: true, debounce_until: 0, syncing: false })
+      body: JSON.stringify({ pending: true, debounce_until: 0, syncing: false, manual_trigger: false })
     });
     if (!res.ok) throw new Error(`${res.status}`);
     showToast('同步任务已触发，syncer 容器将自动执行', 'success');
@@ -2488,21 +3492,11 @@ function renderGitHubWorkflow(data) {
       <span style="font-size:.82rem;color:var(--text-secondary)">${esc(data.message || (exists ? '仓库中已有博客同步工作流' : '仓库中尚未创建工作流文件'))}</span>
     </div>
     <div style="margin-bottom:12px">
-      <div class="config-label" style="margin-bottom:6px">工作流预览（触发路径：${esc(findWorkflowPrefix())}）</div>
+      <div class="config-label" style="margin-bottom:6px">工作流预览（触发范围：仓库 push）</div>
       <pre style="background:var(--bg-input);color:var(--text-secondary);padding:12px;border-radius:var(--radius-sm);font-size:.75rem;overflow-x:auto;max-height:300px;overflow-y:auto;font-family:'JetBrains Mono',monospace;line-height:1.5;white-space:pre-wrap">${esc(preview)}</pre>
     </div>
     <button class="btn-save" onclick="upsertGitHubWorkflow()">${btnText}</button>
     <span class="save-hint" style="margin-left:8px">在 GitHub 仓库中创建/更新 .github/workflows/blog-sync.yml</span>`;
-}
-
-function findWorkflowPrefix() {
-  // 用 notes_github_prefix，回退到「仓库根目录」
-  try {
-    const items = document.querySelectorAll('#tab-sync [data-key]');
-    for (const el of items) { if (el.dataset.key === 'notes_github_prefix' && el.value.trim()) return el.value.trim() + '/**.md'; }
-    for (const el of items) { if (el.dataset.key === 'notes_github_prefix' && el.value.trim() === '') return '全部 .md 文件'; }
-  } catch {}
-  return '根据配置';
 }
 
 async function upsertGitHubWorkflow() {

@@ -46,6 +46,7 @@ WORKDIR /quartz
 COPY --from=deps /quartz /quartz
 
 COPY entrypoint.sh /entrypoint.sh
+COPY scripts/ /quartz/scripts/
 RUN chmod +x /entrypoint.sh
 
 # /data/notes：挂载的 Markdown 内容源（只读）

@@ -52,9 +52,11 @@ class SyncStatusResponse(BaseModel):
     pending: bool = False
     syncing: bool = False
     building: bool = False
+    content_visibility_pending: bool = False
     manual_trigger: bool = False
     debounce_until: float = 0
     triggered_at: str = ""
     event_count: int = 0
     last_sync_at: str = ""
     last_sync_status: str = ""
+    last_sync_detail: str = ""

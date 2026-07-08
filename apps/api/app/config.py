@@ -33,19 +33,16 @@ class Settings(BaseSettings):
     # 远程同步配置：支持 COS 或 GitHub
     remote_type: str = Field(default="cos", pattern="^(cos|github)$")
 
-    # COS 笔记同步：notes_cos_prefix 指定 OSS 中的笔记文件夹路径
-    # sync.sh 会根据 cos_bucket + notes_cos_prefix 拼出完整 COS_SYNC_SOURCE
+    # COS 同步：当前同步 bucket 根
     cos_secret_id: str = ""
     cos_secret_key: str = ""
     cos_region: str = "ap-shanghai"
     cos_endpoint: str = "cos.ap-shanghai.myqcloud.com"
     cos_bucket: str = ""
-    notes_cos_prefix: str = ""
 
     # GitHub 笔记同步：只读拉取，不允许本地提交推送
     github_repo_url: str = ""
     github_branch: str = "main"
-    notes_github_prefix: str = ""  # 仓库内笔记子目录，如 blog/online（留空表示根目录）
     github_token: str = ""  # GitHub Personal Access Token（私有仓库需要）
     git_proxy: str = ""  # git clone/pull 代理，如 http://172.17.0.1:7890（留空=直连）
     git_accelerator: str = ""  # GitHub 加速镜像前缀，如 https://ghfast.top（留空=不加速）

@@ -10,6 +10,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from .config import get_settings
 from .embed_client import get_embed_model
 from .errors import AppError
+from . import visibility
 
 
 def get_chroma_collection():
@@ -28,34 +29,9 @@ def _load_docstore(docstore_path: str) -> SimpleDocumentStore:
     return SimpleDocumentStore()
 
 
-def _list_note_files(notes_dir: Path, assets_folders: set[str] | None = None) -> list[str]:
-    if not notes_dir.is_dir():
-        return []
-    skip = assets_folders or set()
-    result = []
-    for path in sorted(notes_dir.rglob("*.md")):
-        if not path.is_file():
-            continue
-        # 跳过附件文件夹内的文件
-        if skip and any(part in skip for part in path.relative_to(notes_dir).parts):
-            continue
-        result.append(str(path))
-    return result
-
-
 def _resolve_scan_dir(settings) -> Path:
-    """确定 reindex 实际扫描的目录。
-
-    GitHub 模式 clone 整个仓库（含 My/Study/Template 等非博客内容），若直接扫 notes_dir
-    会把非发布内容也索引，且超大文件可能超出 embedding 输入上限。
-    配置了 notes_github_prefix 时只扫该子目录，与 syncer 的子目录提取语义对齐。
-    """
-    notes_dir = Path(settings.notes_dir)
-    if settings.remote_type == "github" and settings.notes_github_prefix:
-        subdir = notes_dir / settings.notes_github_prefix.strip("/")
-        if subdir.is_dir():
-            return subdir
-    return notes_dir
+    """reindex 扫描目录：展示范围改由 visibility 模块统一决定，扫描全 notes_dir，由 is_public_path 过滤。"""
+    return Path(settings.notes_dir)
 
 
 def _extract_title(text: str, doc_id: str) -> str:
@@ -77,14 +53,19 @@ def _extract_title(text: str, doc_id: str) -> str:
     return path.parent.name if path.name == "index.md" and path.parent.name else path.stem
 
 
-def _build_source_url(doc_id: str) -> str:
-    path = Path(doc_id)
+def _build_source_url(doc_id: str, settings=None) -> str:
+    path = Path(visibility.public_doc_id(doc_id, settings))
     if path.name == "index.md":
         return "/" if str(path.parent) == "." else f"/{path.parent.as_posix()}"
     return f"/{path.with_suffix('').as_posix()}"
 
 
 _slug_map: dict[str, str] | None = None
+
+
+def invalidate_slug_map() -> None:
+    global _slug_map
+    _slug_map = None
 
 
 def _build_slug_map() -> dict[str, str]:
@@ -113,6 +94,8 @@ def get_note_context(slug: str) -> dict:
         return {}
 
     settings = get_settings()
+    if not visibility.is_public_path(file_path, settings):
+        return {}
     full_path = Path(settings.notes_dir) / file_path
     if not full_path.is_file():
         return {}
@@ -140,7 +123,8 @@ def get_note_context(slug: str) -> dict:
     return {"frontmatter": frontmatter, "headings": headings}
 
 
-def _prepare_documents(notes_dir: Path, input_files: list[str]):
+def _prepare_documents(notes_dir: Path, input_files: list[str], settings=None):
+    settings = settings or get_settings()
     documents = SimpleDirectoryReader(
         input_files=input_files,
         filename_as_id=True,
@@ -151,7 +135,7 @@ def _prepare_documents(notes_dir: Path, input_files: list[str]):
         source_path = Path(document.metadata["file_path"])
         doc_id = source_path.relative_to(notes_dir).as_posix()
         title = _extract_title(document.text, doc_id)
-        source_url = _build_source_url(doc_id)
+        source_url = _build_source_url(doc_id, settings)
 
         document.doc_id = doc_id
         document.metadata = {
@@ -179,13 +163,14 @@ def _delete_missing_documents(collection, docstore: SimpleDocumentStore, deleted
 
 def reindex() -> dict:
     settings = get_settings()
+    invalidate_slug_map()
     notes_dir = Path(settings.notes_dir)
     if not notes_dir.is_dir():
         raise AppError(500, "notes_unavailable", f"笔记目录不存在：{notes_dir}")
 
-    # GitHub 模式下只扫描 notes_github_prefix 子目录，避免索引非博客内容
-    scan_dir = _resolve_scan_dir(settings)
-    input_files = _list_note_files(scan_dir, settings.assets_folder_set)
+    # 展示范围由 visibility 模块统一决定:Quartz 构建与 RAG 索引共用同一 allowlist。
+    visibility.write_public_manifest(settings)
+    input_files = visibility.list_public_markdown_files(settings)
     docstore = _load_docstore(settings.docstore_path)
     previous_hashes = _existing_hashes_by_doc_id(docstore)
     current_doc_ids = {
@@ -207,7 +192,7 @@ def reindex() -> dict:
             "detail": "未发现 Markdown 笔记，已完成缺失文档清理",
         }
 
-    documents = _prepare_documents(notes_dir, input_files)
+    documents = _prepare_documents(notes_dir, input_files, settings)
     processed = sum(1 for document in documents if previous_hashes.get(document.doc_id) != document.hash)
     skipped = len(documents) - processed
 
@@ -220,6 +205,7 @@ def reindex() -> dict:
     )
     pipeline.run(documents=documents)
     docstore.persist(settings.docstore_path)
+    invalidate_slug_map()
 
     return {
         "status": "ok",

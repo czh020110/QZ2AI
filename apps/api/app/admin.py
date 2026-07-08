@@ -15,6 +15,7 @@ from .database import get_connection
 from .models import SyncStatusResponse, WebhookResponse
 from .config import get_settings
 from . import appearance as appearance_mod
+from . import visibility as visibility_mod
 import logging
 
 logger = logging.getLogger("admin")
@@ -131,19 +132,8 @@ def update_config(
     if not env_path:
         env_path = ".env"
 
-    existing: dict[str, str] = {}
-    try:
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    k, _, v = line.partition("=")
-                    existing[k.strip().upper()] = v.strip()
-    except FileNotFoundError:
-        pass
-
+    # 锁外先计算本次要应用的更新（仅依赖 model_fields/sensitive，不依赖文件内容）
+    to_apply: dict[str, str] = {}
     updated_keys: list[str] = []
     for key, new_value in updates.items():
         if key not in s.model_fields:
@@ -152,7 +142,7 @@ def update_config(
         # 敏感字段：含 **** 表示未修改（部分脱敏值或全星号），跳过覆盖
         if is_sensitive and "****" in new_value:
             continue
-        existing[key.upper()] = new_value
+        to_apply[key.upper()] = new_value
         updated_keys.append(key)
 
     if not updated_keys:
@@ -164,6 +154,17 @@ def update_config(
         fcntl.flock(f, fcntl.LOCK_EX)
         try:
             raw_lines = f.readlines()
+
+            # 锁内基于最新文件构建 existing，避免并发保存互相覆盖
+            existing: dict[str, str] = {}
+            for line in raw_lines:
+                stripped = line.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                if "=" in stripped:
+                    k, _, v = stripped.partition("=")
+                    existing[k.strip().upper()] = v.strip()
+            existing.update(to_apply)
 
             lines: list[str] = []
             written_keys: set[str] = set()
@@ -245,8 +246,6 @@ def _trigger_sync_pending(s, skip_auto: bool = False) -> WebhookResponse:
     """
     state = read_sync_state()
     state["pending"] = True
-    state["syncing"] = False
-    state["building"] = False
     state["manual_trigger"] = skip_auto and not s.auto_sync_enabled
     state["debounce_until"] = 0 if skip_auto else time.time() + s.debounce_seconds
     state["triggered_at"] = datetime.now().isoformat()
@@ -286,24 +285,7 @@ def cos_webhook(
     if not s.auto_sync_enabled:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "自动同步未启用")
 
-    # 前缀过滤：只处理 notes_cos_prefix 下的事件
-    if body and s.notes_cos_prefix:
-        records = body.get("Records", [])
-        prefix = s.notes_cos_prefix.lstrip("/")
-        matched = False
-        for record in records:
-            cos_obj = record.get("cos", {}).get("cosObject", {})
-            if not cos_obj:
-                cos_obj = record.get("cosObject", {})
-            key = cos_obj.get("key", "")
-            # COS 事件 key 格式：appid/bucket/path，取 path 部分做前缀匹配
-            if "/" in key and len(key.split("/", 2)) >= 3:
-                key = key.split("/", 2)[2]
-            if key.startswith(prefix):
-                matched = True
-                break
-        if not matched and records:
-            return WebhookResponse(status="ignored", message="事件不在监听前缀范围内")
+    # 展示范围改由 content_visibility.json 控制;COS webhook 不再按前缀丢弃事件。
 
     return _trigger_sync_pending(s)
 
@@ -326,8 +308,8 @@ def update_sync_status(
     _verify_admin(x_admin_token)
     state = read_sync_state()
     if body:
-        for key in ("pending", "syncing", "building", "manual_trigger", "debounce_until", "triggered_at",
-                     "event_count", "last_sync_at", "last_sync_status"):
+        for key in ("pending", "syncing", "building", "content_visibility_pending", "manual_trigger", "debounce_until", "triggered_at",
+                     "event_count", "last_sync_at", "last_sync_status", "last_sync_detail"):
             if key in body:
                 state[key] = body[key]
     write_sync_state(state)
@@ -373,7 +355,7 @@ def get_github_workflow(
 
         existing = get_file(s.github_token, s.github_repo_url, s.github_branch, WORKFLOW_PATH)
         blog_url = s.allowed_origin_list[0] if s.allowed_origin_list else "http://localhost"
-        expected = build_sync_workflow(s.github_branch, s.notes_github_prefix, blog_url, s.webhook_secret)
+        expected = build_sync_workflow(s.github_branch, blog_url, s.webhook_secret)
         current_content = None
         if existing and existing.get("content"):
             current_content = base64.b64decode(existing["content"]).decode("utf-8")
@@ -406,7 +388,7 @@ def upsert_github_workflow(
         from .github_client import build_sync_workflow, put_file
 
         blog_url = s.allowed_origin_list[0] if s.allowed_origin_list else "http://localhost"
-        content = build_sync_workflow(s.github_branch, s.notes_github_prefix, blog_url, s.webhook_secret)
+        content = build_sync_workflow(s.github_branch, blog_url, s.webhook_secret)
 
         result = put_file(
             token=s.github_token,
@@ -426,6 +408,64 @@ def upsert_github_workflow(
     except Exception as e:
         logger.exception("创建 GitHub 工作流失败")
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, f"操作失败: {e}")
+
+
+# ============================ 内容展示范围 ============================ #
+
+
+@router.get("/content/tree")
+def get_content_tree(
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """获取笔记目录/Markdown 文件树与当前展示范围(不返回文件内容)。"""
+    _verify_admin(x_admin_token)
+    return visibility_mod.build_content_tree()
+
+
+@router.get("/content/visibility")
+def get_content_visibility(
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """获取当前展示范围配置。"""
+    _verify_admin(x_admin_token)
+    return visibility_mod.get_visibility_admin()
+
+
+@router.get("/content/file")
+def get_content_file(
+    path: str,
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """获取指定 Markdown 文件的原始内容预览(仅管理后台可见)。"""
+    _verify_admin(x_admin_token)
+    preview = visibility_mod.get_markdown_preview(path)
+    if not preview:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "文件不存在或不可预览")
+    return preview
+
+
+@router.put("/content/visibility")
+def update_content_visibility(
+    body: dict[str, Any],
+    x_admin_token: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """保存展示范围,刷新构建清单并触发或排队 reindex + Quartz rebuild。"""
+    _verify_admin(x_admin_token)
+    saved = visibility_mod.save_visibility(body)
+    from .syncer import trigger_content_visibility_rebuild
+
+    rebuild_state = trigger_content_visibility_rebuild()
+    message = (
+        "展示范围已保存,正在重建索引和博客"
+        if rebuild_state == "started"
+        else "展示范围已保存,当前有任务执行中,已排队等待应用"
+    )
+    return {
+        "status": "ok" if rebuild_state == "started" else "accepted",
+        "visibility": saved,
+        "rebuild_state": rebuild_state,
+        "message": message,
+    }
 
 
 # ============================ 外观设置 ============================ #

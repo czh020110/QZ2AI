@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 from .config import get_settings
 from .sync_state import read_sync_state, write_sync_state
@@ -12,6 +13,24 @@ from .sync_state import read_sync_state, write_sync_state
 logger = logging.getLogger("syncer")
 
 POLL_INTERVAL = 10
+SYNC_DETAIL_LIMIT = 500
+
+
+def _clip_sync_detail(detail: str, *secrets: str) -> str:
+    text = " ".join(str(detail or "").split())
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "***")
+    return text[:SYNC_DETAIL_LIMIT]
+
+
+def _with_sync_detail(prefix: str, detail: str, *secrets: str) -> str:
+    base = _clip_sync_detail(detail, *secrets)
+    if not prefix:
+        return base
+    if not base:
+        return prefix
+    return _clip_sync_detail(f"{prefix}: {base}", *secrets)
 
 
 def _resolve_compose_project() -> str:
@@ -72,16 +91,15 @@ def _resolve_host_data_dir() -> str:
     return ""
 
 
-def _coscli_sync(settings) -> tuple[bool, bool]:
-    """执行 coscli sync，返回 (成功, 有变更)"""
+def _coscli_sync(settings) -> tuple[bool, bool, str]:
+    """执行 coscli sync，返回 (成功, 有变更, 失败详情)"""
     cos_sync_source = ""
-    if settings.cos_bucket and settings.notes_cos_prefix:
-        prefix = settings.notes_cos_prefix.strip("/")
-        cos_sync_source = f"cos://{settings.cos_bucket}/{prefix}/"
+    if settings.cos_bucket:
+        cos_sync_source = f"cos://{settings.cos_bucket}/"
 
     if not cos_sync_source:
         logger.info("未配置 COS 同步源，跳过")
-        return True, False
+        return True, False, ""
 
     # 生成临时 coscli 配置
     import tempfile
@@ -106,25 +124,24 @@ def _coscli_sync(settings) -> tuple[bool, bool]:
 
         notes_dir = Path(settings.notes_dir)
         notes_dir.mkdir(parents=True, exist_ok=True)
-        backup_dir = Path("/data/logs/cos-sync-backup")
-        backup_dir.mkdir(parents=True, exist_ok=True)
 
         cmd = [
             "coscli", "sync", cos_sync_source, str(notes_dir),
-            "-r", "--delete", "--backup-dir", str(backup_dir),
-            "--force", "-c", config_file,
+            "-r", "--delete", "--force", "-c", config_file,
         ]
         logger.info("执行 COS 同步: %s → %s", cos_sync_source, notes_dir)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         if result.returncode != 0:
-            logger.error("COS 同步失败: %s", result.stderr[:500])
-            return False, False
+            detail = _with_sync_detail("COS 同步失败", result.stderr or result.stdout, settings.cos_secret_id, settings.cos_secret_key)
+            logger.error("COS 同步失败: %s", detail)
+            return False, False, detail
         changed = bool(result.stdout.strip())
         logger.info("COS 同步完成，有变更: %s", changed)
-        return True, changed
+        return True, changed, ""
     except Exception as e:
-        logger.error("COS 同步异常: %s", e)
-        return False, False
+        detail = _with_sync_detail("COS 同步异常", str(e), settings.cos_secret_id, settings.cos_secret_key)
+        logger.error("COS 同步异常: %s", detail)
+        return False, False, detail
     finally:
         if config_file:
             try:
@@ -136,16 +153,14 @@ def _coscli_sync(settings) -> tuple[bool, bool]:
 def _build_repo_url(settings, accelerator: str = "") -> str:
     """构造 GitHub 仓库 URL：可选加速镜像前缀 + token 认证。
 
-    accelerator 为空时走直连；非空时把 https://github.com/... 重写到该前缀。
-    GitHub 已禁用 https://TOKEN@github.com 旧格式，必须用 x-access-token 用户名，
-    否则 git 会把 TOKEN 当用户名并交互式要求输入密码，容器内无 tty 导致克隆失败。
+    accelerator 为空时走直连；非空时把完整的 GitHub HTTPS URL 包装到镜像前缀后。
+    GitHub 已禁用 https://TOKEN@github.com 旧格式，必须用 x-access-token 用户名。
     """
     repo_url = settings.github_repo_url
-    if accelerator and repo_url.startswith("https://github.com/"):
+    if settings.github_token and repo_url.startswith("https://github.com/"):
+        repo_url = repo_url.replace("https://github.com/", f"https://x-access-token:{settings.github_token}@github.com/", 1)
+    if accelerator and settings.github_repo_url.startswith("https://github.com/"):
         repo_url = accelerator.rstrip("/") + "/" + repo_url
-    if settings.github_token and "github.com" in repo_url:
-        if repo_url.startswith("https://github.com/"):
-            repo_url = repo_url.replace("https://github.com/", f"https://x-access-token:{settings.github_token}@github.com/")
     return repo_url
 
 
@@ -155,80 +170,67 @@ def _run_pull(git_base, notes_dir, branch, git_env) -> subprocess.CompletedProce
     return subprocess.run(pull_cmd, capture_output=True, text=True, timeout=600, env=git_env)
 
 
-def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> bool:
-    """拉取 GitHub 仓库更新，失败时按加速源顺序兜底重试。
-
-    重试顺序：直连 → 用户配置的 git_accelerator → 硬编码 https://ghfast.top。
-    国内服务器直连 github.com 不稳定，偶发超时时靠加速镜像兜底，避免单次 webhook 同步彻底失败。
-    返回是否最终成功。
-    """
+def _pull_with_fallback(settings, git_base, notes_dir, git_env) -> tuple[bool, str]:
+    """拉取 GitHub 仓库更新，失败时按加速源顺序兜底重试。"""
     branch = settings.github_branch
     direct_url = _build_repo_url(settings)
+    last_detail = ""
 
-    # 先 set-url 到直连地址再 pull（token 可能变更，每次都同步 remote）
-    if settings.github_token:
-        set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", direct_url]
+    def set_origin(url: str) -> None:
+        set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", url]
         subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
 
-    # 1. 直连
+    # 每次都同步 remote 到当前候选 URL（无 token 时也要切，否则加速镜像对公开仓库不生效）
+    set_origin(direct_url)
+
     result = _run_pull(git_base, notes_dir, branch, git_env)
     if result.returncode == 0:
-        return True
-    logger.warning("GitHub 直连拉取失败: %s", result.stderr[:300])
+        return True, ""
+    last_detail = _with_sync_detail("GitHub 直连拉取失败", result.stderr or result.stdout, settings.github_token)
+    logger.warning("GitHub 直连拉取失败: %s", _clip_sync_detail(result.stderr or result.stdout, settings.github_token))
 
-    # 2. 用户配置的加速镜像（与直连不同时才试，避免重复）
     if settings.git_accelerator:
         accel_url = _build_repo_url(settings, settings.git_accelerator)
         logger.warning("重试：使用配置的加速镜像 %s", settings.git_accelerator)
-        if settings.github_token:
-            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", accel_url]
-            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        set_origin(accel_url)
         result = _run_pull(git_base, notes_dir, branch, git_env)
         if result.returncode == 0:
             logger.info("加速镜像 %s 拉取成功", settings.git_accelerator)
-            return True
-        logger.warning("加速镜像 %s 拉取失败: %s", settings.git_accelerator, result.stderr[:300])
+            return True, ""
+        last_detail = _with_sync_detail(f"加速镜像 {settings.git_accelerator} 拉取失败", result.stderr or result.stdout, settings.github_token)
+        logger.warning("加速镜像 %s 拉取失败: %s", settings.git_accelerator, _clip_sync_detail(result.stderr or result.stdout, settings.github_token))
 
-    # 3. 硬编码 ghfast.top 兜底（与用户配置不同时才试）
     hardcoded = "https://ghfast.top"
     if hardcoded != settings.git_accelerator:
         hard_url = _build_repo_url(settings, hardcoded)
         logger.warning("重试：使用硬编码加速 %s", hardcoded)
-        if settings.github_token:
-            set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", hard_url]
-            subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
+        set_origin(hard_url)
         result = _run_pull(git_base, notes_dir, branch, git_env)
         if result.returncode == 0:
             logger.info("硬编码加速 %s 拉取成功", hardcoded)
-            return True
-        logger.error("硬编码加速 %s 拉取失败: %s", hardcoded, result.stderr[:300])
+            return True, ""
+        last_detail = _with_sync_detail(f"硬编码加速 {hardcoded} 拉取失败", result.stderr or result.stdout, settings.github_token)
+        logger.error("硬编码加速 %s 拉取失败: %s", hardcoded, _clip_sync_detail(result.stderr or result.stdout, settings.github_token))
 
-    # 三次都失败，恢复 remote 到直连地址（避免下次 set-url 前残留加速地址）
-    if settings.github_token:
-        set_url_cmd = git_base + ["-C", str(notes_dir), "remote", "set-url", "origin", direct_url]
-        subprocess.run(set_url_cmd, capture_output=True, text=True, timeout=10, env=git_env)
-    return False
+    set_origin(direct_url)
+    return False, last_detail
 
 
-def _github_sync(settings) -> tuple[bool, bool]:
-    """执行 GitHub 只读同步，返回 (成功, 有变更)"""
+def _github_sync(settings) -> tuple[bool, bool, str]:
+    """执行 GitHub 只读同步，返回 (成功, 有变更, 失败详情)"""
     if not settings.github_repo_url:
         logger.info("未配置 GitHub 仓库 URL，跳过")
-        return True, False
+        return True, False, ""
 
     notes_dir = Path(settings.notes_dir)
     git_dir = notes_dir / ".git"
 
-    # 代理通过 git -c http.proxy 传入，作用域仅单条命令，不污染全局环境
-    # safe.directory='*' 解除 dubious ownership 限制：data 卷 owner 是宿主机 1000，
-    # 容器内 root clone 后 .git 为 root，混 owner 时 git 拒绝操作
     git_env = os.environ.copy()
     git_base = ["git", "-c", "safe.directory=*"]
     if settings.git_proxy:
         git_base += ["-c", f"http.proxy={settings.git_proxy}", "-c", f"https.proxy={settings.git_proxy}"]
         logger.info("git 使用代理: %s", settings.git_proxy)
 
-    # 首次克隆用配置的加速地址（若有），失败由 clone 自身的 600s 超时兜底，不在此重试
     repo_url = _build_repo_url(settings, settings.git_accelerator)
     if settings.git_accelerator:
         logger.info("使用加速镜像: %s", settings.git_accelerator)
@@ -236,11 +238,7 @@ def _github_sync(settings) -> tuple[bool, bool]:
         logger.info("使用 GitHub Token 认证")
 
     try:
-        # 检查是否已经是 git 仓库
         if not git_dir.exists():
-            # 首次克隆：git clone 要求目标目录为空或不存在。
-            # 从 COS 等其他来源切换到 GitHub 时，notes_dir 可能已残留旧笔记，
-            # 需先清空目录（保留目录本身）再克隆，否则 clone 会报 "destination path already exists"
             if notes_dir.exists():
                 import shutil
                 for item in notes_dir.iterdir():
@@ -258,32 +256,28 @@ def _github_sync(settings) -> tuple[bool, bool]:
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=git_env)
             if result.returncode != 0:
-                logger.error("GitHub 克隆失败: %s", result.stderr[:500])
-                return False, False
+                detail = _with_sync_detail("GitHub 克隆失败", result.stderr or result.stdout, settings.github_token)
+                logger.error("GitHub 克隆失败: %s", detail)
+                return False, False, detail
             logger.info("GitHub 克隆完成")
-            return True, True  # 首次克隆视为有变更
+            return True, True, ""
 
-        # 已存在仓库，执行拉取
         logger.info("拉取 GitHub 仓库更新: %s", settings.github_repo_url)
 
-        # 丢弃本地变更（只读模式）
         reset_cmd = git_base + ["-C", str(notes_dir), "reset", "--hard", "HEAD"]
         subprocess.run(reset_cmd, capture_output=True, text=True, timeout=30, env=git_env)
 
-        # 清理未跟踪文件
         clean_cmd = git_base + ["-C", str(notes_dir), "clean", "-fd"]
         subprocess.run(clean_cmd, capture_output=True, text=True, timeout=30, env=git_env)
 
-        # 记录拉取前的 commit
         old_commit_cmd = git_base + ["-C", str(notes_dir), "rev-parse", "HEAD"]
         old_result = subprocess.run(old_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         old_commit = old_result.stdout.strip() if old_result.returncode == 0 else ""
 
-        # 拉取最新代码（含加速兜底重试）
-        if not _pull_with_fallback(settings, git_base, notes_dir, git_env):
-            return False, False
+        ok, detail = _pull_with_fallback(settings, git_base, notes_dir, git_env)
+        if not ok:
+            return False, False, detail
 
-        # 记录拉取后的 commit
         new_commit_cmd = git_base + ["-C", str(notes_dir), "rev-parse", "HEAD"]
         new_result = subprocess.run(new_commit_cmd, capture_output=True, text=True, timeout=10, env=git_env)
         new_commit = new_result.stdout.strip() if new_result.returncode == 0 else ""
@@ -291,37 +285,40 @@ def _github_sync(settings) -> tuple[bool, bool]:
         changed = (old_commit != new_commit)
         logger.info("GitHub 拉取完成，有变更: %s (旧: %s, 新: %s)", changed, old_commit[:8], new_commit[:8])
 
-        return True, changed
+        return True, changed, ""
     except Exception as e:
-        logger.error("GitHub 同步异常: %s", e)
-        return False, False
+        detail = _with_sync_detail("GitHub 同步异常", str(e), settings.github_token)
+        logger.error("GitHub 同步异常: %s", detail)
+        return False, False, detail
 
 
-def _remote_sync(settings) -> tuple[bool, bool]:
-    """根据配置的远程类型执行同步，返回 (成功, 有变更)"""
+def _remote_sync(settings) -> tuple[bool, bool, str]:
+    """根据配置的远程类型执行同步，返回 (成功, 有变更, 失败详情)"""
     if settings.remote_type == "github":
         return _github_sync(settings)
     elif settings.remote_type == "cos":
         return _coscli_sync(settings)
     else:
+        detail = _with_sync_detail("未知的远程类型", settings.remote_type)
         logger.error("未知的远程类型: %s", settings.remote_type)
-        return False, False
+        return False, False, detail
 
 
-def _trigger_reindex() -> bool:
-    """直接调用 reindex()，不需要走 HTTP"""
+def _trigger_reindex() -> tuple[bool, str]:
+    """直接调用 reindex()，不需要走 HTTP，返回 (成功, 失败详情)。"""
     try:
         from .indexer import reindex
         result = reindex()
         logger.info("reindex 完成: processed=%d deleted=%d", result.get("processed", 0), result.get("deleted", 0))
-        return True
+        return True, ""
     except Exception as e:
-        logger.error("reindex 失败: %s", e)
-        return False
+        detail = _with_sync_detail("reindex 失败", str(e))
+        logger.error("reindex 失败: %s", detail)
+        return False, detail
 
 
-def _trigger_web_rebuild() -> bool:
-    """执行 docker compose run --rm -T web
+def _trigger_web_rebuild() -> tuple[bool, str]:
+    """执行 docker compose run --rm -T web，返回 (成功, 失败详情)。
 
     compose 通过 docker socket 在宿主机 daemon 端执行。两个关键点：
     1. notes bind 用 ${HOST_NOTES_DIR}/notes 绝对路径（HOST_NOTES_DIR 由 _resolve_host_data_dir 探测），
@@ -333,8 +330,9 @@ def _trigger_web_rebuild() -> bool:
     try:
         host_data_dir = _resolve_host_data_dir()
         if not host_data_dir:
-            logger.error("无法探测宿主机 data 路径，跳过 Quartz 构建")
-            return False
+            detail = "无法探测宿主机 data 路径，跳过 Quartz 构建"
+            logger.error(detail)
+            return False, detail
         project_dir = os.environ.get("PROJECT_DIR", "/project")
         env = os.environ.copy()
         env["HOST_NOTES_DIR"] = host_data_dir
@@ -346,18 +344,49 @@ def _trigger_web_rebuild() -> bool:
         logger.info("触发 Quartz 构建（HOST_NOTES_DIR=%s, project=%s）", host_data_dir, project_name or "默认")
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800, cwd=project_dir, env=env)
         if result.returncode != 0:
-            logger.error("Quartz 构建失败: %s", (result.stderr or result.stdout)[:500])
-            return False
-        # 兜底：构建成功但产物 0 篇视为失败（bind 到空目录的典型症状）
+            detail = _with_sync_detail("Quartz 构建失败", result.stderr or result.stdout)
+            logger.error("Quartz 构建失败: %s", detail)
+            return False, detail
         out = (result.stdout or "")
         if "Found 0 input files" in out and "Done processing 0 files" in out:
-            logger.error("Quartz 构建产物为 0 篇，疑似 notes 挂载失效: %s", out[:300])
-            return False
+            detail = _with_sync_detail("Quartz 构建产物为 0 篇，疑似 notes 挂载失效", out)
+            logger.error("Quartz 构建产物为 0 篇，疑似 notes 挂载失效: %s", _clip_sync_detail(out))
+            return False, detail
         logger.info("Quartz 构建完成")
-        return True
+        return True, ""
     except Exception as e:
-        logger.error("Quartz 构建异常: %s", e)
-        return False
+        detail = _with_sync_detail("Quartz 构建异常", str(e))
+        logger.error("Quartz 构建异常: %s", detail)
+        return False, detail
+
+
+def _run_content_visibility_rebuild_job() -> str:
+    """执行一次不拉远程的展示范围重建，返回最终状态。"""
+    sync_status = "success"
+    sync_detail = ""
+    reindex_ok, reindex_detail = _trigger_reindex()
+    if not reindex_ok:
+        sync_status = "reindex_failed"
+        sync_detail = reindex_detail
+    rebuild_ok, rebuild_detail = _trigger_web_rebuild()
+    if not rebuild_ok and sync_status == "success":
+        sync_status = "build_failed"
+        sync_detail = rebuild_detail
+
+    state = read_sync_state()
+    state["last_sync_at"] = datetime.now(timezone.utc).isoformat()
+    state["last_sync_status"] = sync_status
+    state["last_sync_detail"] = "" if sync_status == "success" else sync_detail
+    write_sync_state(state)
+
+    if sync_status in ("reindex_failed", "build_failed"):
+        try:
+            from .notifier import notify_sync_failure
+            notify_sync_failure(get_settings(), sync_status, sync_detail)
+        except Exception as ne:
+            logger.warning("展示范围重建失败通知发送失败: %s", ne)
+    return sync_status
+
 
 
 def trigger_rebuild_only() -> None:
@@ -365,18 +394,27 @@ def trigger_rebuild_only() -> None:
 
     _syncing_loop 在笔记无变更(changed=False)时跳过 rebuild,语言切换需绕过该判断:
     后台线程直接置 building=true → _trigger_web_rebuild() → building=false。
-    不动 pending/syncing,避免与 _syncing_loop 竞态;若已有同步/重建在执行则跳过。
+    不动 pending/syncing,避免与 _syncing_loop 竞态;若已有同步/重建在执行则排队等待。
     """
     def _run():
+        # 等待当前同步/重建结束再执行,避免请求被静默丢弃
+        while True:
+            state = read_sync_state()
+            if not state.get("syncing") and not state.get("building"):
+                break
+            time.sleep(POLL_INTERVAL)
         state = read_sync_state()
-        if state.get("syncing") or state.get("building"):
-            logger.info("已有同步/重建在执行,跳过语言切换触发的重建")
-            return
         state["building"] = True
         write_sync_state(state)
         try:
-            if not _trigger_web_rebuild():
-                logger.warning("语言切换触发的 Quartz 重建失败")
+            ok, detail = _trigger_web_rebuild()
+            if not ok:
+                logger.warning("语言切换触发的 Quartz 重建失败: %s", detail)
+                fail_state = read_sync_state()
+                fail_state["last_sync_at"] = datetime.now(timezone.utc).isoformat()
+                fail_state["last_sync_status"] = "build_failed"
+                fail_state["last_sync_detail"] = detail
+                write_sync_state(fail_state)
         finally:
             state = read_sync_state()
             state["building"] = False
@@ -385,11 +423,45 @@ def trigger_rebuild_only() -> None:
     threading.Thread(target=_run, daemon=True).start()
 
 
-def startup_recovery() -> None:
-    """syncer 线程启动时恢复卡死状态：同步中断则重置为待同步"""
+def trigger_content_visibility_rebuild() -> str:
+    """展示范围变更后重建索引与 Quartz,不重新拉取远程笔记。"""
     state = read_sync_state()
-    if state.get("syncing"):
-        logger.warning("检测到卡死状态（syncing=true），重置为待同步")
+    if state.get("syncing") or state.get("building"):
+        state["content_visibility_pending"] = True
+        write_sync_state(state)
+        logger.info("已有同步/重建在执行,展示范围重建已排队")
+        return "queued"
+
+    state["building"] = True
+    state["content_visibility_pending"] = False
+    write_sync_state(state)
+
+    def _run():
+        try:
+            _run_content_visibility_rebuild_job()
+        finally:
+            state = read_sync_state()
+            state["building"] = False
+            write_sync_state(state)
+
+    try:
+        threading.Thread(target=_run, daemon=True).start()
+    except Exception as e:
+        state = read_sync_state()
+        state["building"] = False
+        state["last_sync_at"] = datetime.now(timezone.utc).isoformat()
+        state["last_sync_status"] = "build_failed"
+        state["last_sync_detail"] = _with_sync_detail("展示范围重建线程启动失败", str(e))
+        write_sync_state(state)
+        raise
+    return "started"
+
+
+def startup_recovery() -> None:
+    """syncer 线程启动时恢复卡死状态：同步或构建中断则重置为待同步"""
+    state = read_sync_state()
+    if state.get("syncing") or state.get("building"):
+        logger.warning("检测到卡死状态（syncing/building=true），重置为待同步")
         state["syncing"] = False
         state["building"] = False
         state["pending"] = True
@@ -410,8 +482,24 @@ def _syncing_loop() -> None:
             state = read_sync_state()
             pending = state.get("pending", False)
             syncing = state.get("syncing", False)
+            building = state.get("building", False)
+            content_visibility_pending = state.get("content_visibility_pending", False)
             debounce_until = state.get("debounce_until", 0)
             manual_trigger = state.get("manual_trigger", False)
+
+            if content_visibility_pending and not pending and not syncing and not building:
+                logger.info("执行排队的内容展示重建任务")
+                state["building"] = True
+                state["content_visibility_pending"] = False
+                write_sync_state(state)
+                try:
+                    _run_content_visibility_rebuild_job()
+                finally:
+                    state = read_sync_state()
+                    state["building"] = False
+                    write_sync_state(state)
+                time.sleep(POLL_INTERVAL)
+                continue
 
             # 定时同步：需同时满足 auto_sync_enabled 开启 且 interval > 0
             if settings.auto_sync_enabled:
@@ -457,26 +545,32 @@ def _syncing_loop() -> None:
             write_sync_state(state)
 
             sync_status = "success"
+            sync_detail = ""
 
             # 1. 远程同步（COS 或 GitHub）
-            ok, changed = _remote_sync(settings)
+            ok, changed, remote_detail = _remote_sync(settings)
             if not ok:
                 sync_status = "sync_failed"
-
-            if ok and not changed:
+                sync_detail = remote_detail
+                logger.info("远程同步失败，跳过 reindex 和 Quartz 构建")
+            elif not changed:
                 logger.info("无文件变更，跳过 reindex 和构建")
             else:
                 # 2. 索引重建
                 state["building"] = True
                 write_sync_state(state)
-                if not _trigger_reindex():
+                reindex_ok, reindex_detail = _trigger_reindex()
+                if not reindex_ok:
                     if sync_status == "success":
                         sync_status = "reindex_failed"
+                        sync_detail = reindex_detail
 
                 # 3. Quartz 重建
-                if not _trigger_web_rebuild():
+                rebuild_ok, rebuild_detail = _trigger_web_rebuild()
+                if not rebuild_ok:
                     if sync_status == "success":
                         sync_status = "build_failed"
+                        sync_detail = rebuild_detail
 
             # 4. 清除 pending 与 building
             state = read_sync_state()
@@ -487,6 +581,7 @@ def _syncing_loop() -> None:
             state["syncing_started_at"] = 0
             state["last_sync_at"] = datetime.now(timezone.utc).isoformat()
             state["last_sync_status"] = sync_status
+            state["last_sync_detail"] = "" if sync_status == "success" else sync_detail
             write_sync_state(state)
 
             logger.info("同步流程结束: %s", sync_status)
@@ -495,7 +590,7 @@ def _syncing_loop() -> None:
             if sync_status in ("sync_failed", "reindex_failed", "build_failed"):
                 try:
                     from .notifier import notify_sync_failure
-                    notify_sync_failure(settings, sync_status)
+                    notify_sync_failure(settings, sync_status, sync_detail)
                 except Exception as ne:
                     logger.warning("同步通知发送失败: %s", ne)
         except Exception as e:

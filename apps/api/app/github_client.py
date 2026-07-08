@@ -80,11 +80,16 @@ def put_file(token: str, repo_url: str, branch: str, path: str, content: str, me
     return _request(token, "PUT", url, body)
 
 
-def build_sync_workflow(branch: str, prefix: str, blog_url: str, webhook_secret: str) -> str:
-    """生成博客同步 Actions 工作流 YAML 内容"""
-    # 如果配置了子目录前缀，只监听该目录
-    watch_path = f"{prefix.strip('/')}/**.md" if prefix.strip("/") else "**.md"
+def _shell_quote(value: str) -> str:
+    """单引号包裹 shell 参数，内部单引号用 '\\'' 转义，避免 secret/url 中的特殊字符破坏脚本。"""
+    return "'" + str(value).replace("'", "'\\''") + "'"
 
+
+def build_sync_workflow(branch: str, blog_url: str, webhook_secret: str) -> str:
+    """生成博客同步 Actions 工作流 YAML 内容。工作流监听全仓库 push 变更。"""
+
+    sync_endpoint = _shell_quote(blog_url.rstrip("/") + "/api/webhook/sync")
+    secret_header = _shell_quote(f"X-Webhook-Secret: {webhook_secret}")
     return f"""\
 # 自动生成于博客管理后台，请勿手动修改
 name: 博客自动同步
@@ -93,8 +98,6 @@ on:
   push:
     branches:
       - {branch}
-    paths:
-      - '{watch_path}'
 
 jobs:
   sync:
@@ -102,8 +105,8 @@ jobs:
     steps:
       - name: 触发博客同步
         run: |
-          curl -X POST {blog_url.rstrip('/')}/api/webhook/sync \\
-            -H "X-Webhook-Secret: {webhook_secret}" \\
+          curl -X POST {sync_endpoint} \\
+            -H {secret_header} \\
             -H "Content-Type: application/json" \\
             -d '{{"event":"push","source":"github_actions"}}' \\
             -s --connect-timeout 30 --max-time 30
