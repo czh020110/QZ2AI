@@ -238,12 +238,22 @@ const postRenderKatex = (root: HTMLElement) => {
   })
 }
 function mountAIChatWidget() {
-  let root = document.getElementById(ROOT_ID) as HTMLDivElement | null
+  const roots = Array.from(document.querySelectorAll<HTMLDivElement>(`#${ROOT_ID}`))
+  let root = roots.find((node) => node.dataset.mounted === "true") ?? roots[0] ?? null
+
   if (!root) {
     root = document.createElement("div")
     root.id = ROOT_ID
+  }
+
+  // Quartz 会在页面内容里重复渲染占位节点；真实浮窗统一挂到 body，避免局部容器影响 fixed/backdrop-filter。
+  if (root.parentElement !== document.body) {
     document.body.appendChild(root)
   }
+  roots.forEach((node) => {
+    if (node !== root) node.remove()
+  })
+
   root.classList.add("ai-chat-widget-root")
   if (root.dataset.mounted === "true") return
   root.dataset.mounted = "true"
@@ -255,15 +265,22 @@ function mountAIChatWidget() {
   root.innerHTML = `
     <div class="ai-chat-widget" data-state="closed">
       <button type="button" class="ai-chat-widget__launcher" aria-label="${aiT("AI 问答")}">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/></svg>
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg>
       </button>
-      <section class="ai-chat-widget__panel" hidden>
+      <section class="ai-chat-widget__panel" aria-hidden="true">
         <header class="ai-chat-widget__header">
-          <div>
-            <div class="ai-chat-widget__header-title">${aiT("AI 问答")}</div>
-            <div class="ai-chat-widget__header-subtitle">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>
+          <div class="ai-chat-widget__header-brand">
+            <div class="ai-chat-widget__header-badge">
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg>
+            </div>
+            <div class="ai-chat-widget__header-text">
+              <div class="ai-chat-widget__header-title">${aiT("AI 问答")}</div>
+              <div class="ai-chat-widget__header-subtitle">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>
+            </div>
           </div>
-          <button type="button" class="ai-chat-widget__close" aria-label="${aiT("关闭")}">&times;</button>
+          <button type="button" class="ai-chat-widget__close" aria-label="${aiT("关闭")}">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
         </header>
         <div class="ai-chat-widget__messages"></div>
         <form class="ai-chat-widget__composer">
@@ -288,8 +305,7 @@ function mountAIChatWidget() {
 
   const syncUI = () => {
     widget.dataset.state = isOpen ? "open" : "closed"
-    panel.hidden = !isOpen
-    launcher.hidden = isOpen
+    panel.setAttribute("aria-hidden", isOpen ? "false" : "true")
     sendBtn.disabled = isLoading
     textarea.disabled = isLoading
     renderMessages()
@@ -297,7 +313,12 @@ function mountAIChatWidget() {
 
   const renderMessages = () => {
     if (messages.length === 0) {
-      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>`
+      messagesEl.innerHTML = `<div class="ai-chat-widget__empty">
+          <div class="ai-chat-widget__empty-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 6V2H8"/><path d="M15 11v2"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M20 16a2 2 0 0 1-2 2H8.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 4 20.286V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/><path d="M9 11v2"/></svg>
+          </div>
+          <div class="ai-chat-widget__empty-text">${aiT("基于当前博客内容回答问题，也可直接提交反馈哦")}</div>
+        </div>`
       postRenderKatex(messagesEl)
       return
     }
@@ -443,16 +464,35 @@ function mountAIChatWidget() {
     }
   }
 
+  // ESC 关闭面板；仅在面板内按键时响应，避免拦截页面其他快捷键。
+  const handleEsc = (e: KeyboardEvent) => {
+    if (e.key === "Escape" && isOpen) {
+      e.stopPropagation()
+      closePanel()
+    }
+  }
+
+  // 点击面板外部关闭；面板打开时拦截 launcher 自身冒泡，避免点开即关。
+  const handleOutsideClick = (e: MouseEvent) => {
+    if (!isOpen) return
+    if (widget.contains(e.target as Node)) return
+    closePanel()
+  }
+
   launcher.addEventListener("click", openPanel)
   closeBtn.addEventListener("click", closePanel)
   form.addEventListener("submit", handleSubmit)
   textarea.addEventListener("keydown", handleKeydown)
+  panel.addEventListener("keydown", handleEsc)
+  document.addEventListener("click", handleOutsideClick)
 
   if (typeof window.addCleanup === "function") {
     window.addCleanup(() => launcher.removeEventListener("click", openPanel))
     window.addCleanup(() => closeBtn.removeEventListener("click", closePanel))
     window.addCleanup(() => form.removeEventListener("submit", handleSubmit))
     window.addCleanup(() => textarea.removeEventListener("keydown", handleKeydown))
+    window.addCleanup(() => panel.removeEventListener("keydown", handleEsc))
+    window.addCleanup(() => document.removeEventListener("click", handleOutsideClick))
   }
 
   syncUI()

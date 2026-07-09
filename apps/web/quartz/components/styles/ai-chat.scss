@@ -7,10 +7,10 @@
 }
 
 .ai-chat-widget {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.5rem;
 }
 
 .ai-chat-widget__launcher,
@@ -22,95 +22,308 @@
   font: inherit;
 }
 
+// ============================ Launcher 启动按钮 ============================ //
+// 图标本体透明无包裹圆形，仅靠 stroke 图标 + 周围波动光环表达。
 .ai-chat-widget__launcher {
-  width: 3rem;
-  height: 3rem;
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
   border-radius: 50%;
-  background: var(--secondary);
-  color: var(--light);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: var(--secondary);
+  background: transparent;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.2s ease,
+    color 0.2s ease;
+  will-change: transform, opacity;
+}
+
+// 波动光环：idle 时从图标向外扩散两层波纹，引导点击；打开后隐藏。
+.ai-chat-widget__launcher::before,
+.ai-chat-widget__launcher::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--secondary);
+  opacity: 0;
+  z-index: -1;
+  animation: ai-chat-pulse 2.6s ease-out infinite;
+}
+
+.ai-chat-widget__launcher::after {
+  animation-delay: 1.3s;
 }
 
 .ai-chat-widget__launcher:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  transform: scale(1.1);
+  color: var(--tertiary);
+}
+
+.ai-chat-widget__launcher:active {
+  transform: scale(0.94);
 }
 
 .ai-chat-widget__launcher svg {
-  width: 1.3rem;
-  height: 1.3rem;
-  fill: currentColor;
+  width: 1.9rem;
+  height: 1.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--secondary) 35%, transparent));
 }
 
+// 打开时启动按钮缩旋退出，与面板展开形成"变身"过渡。
+.ai-chat-widget[data-state="open"] .ai-chat-widget__launcher {
+  opacity: 0;
+  transform: scale(0.4) rotate(-25deg);
+  pointer-events: none;
+}
+
+.ai-chat-widget[data-state="open"] .ai-chat-widget__launcher::before,
+.ai-chat-widget[data-state="open"] .ai-chat-widget__launcher::after {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes ai-chat-pulse {
+  0% { transform: scale(1); opacity: 0.5; }
+  70% { transform: scale(1.7); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+// ============================ Panel 面板 ============================ //
+// 绝对定位浮在 launcher 上方，脱离文档流，关闭时仅做 opacity/transform 过渡不影响布局。
 .ai-chat-widget__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.75rem);
+  transform-origin: bottom right;
   width: min(380px, calc(100vw - 2.5rem));
   height: min(560px, 70vh);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--lightgray);
-  border-radius: 1rem;
-  background: var(--light);
+  border: 1px solid rgba(40, 75, 99, 0.18);
+  border-radius: 1.25rem;
+  // 底色压低不透明度，让 backdrop-filter 模糊后的背景真正透出来形成磨砂质感。
+  background: rgba(250, 248, 248, 0.55);
+  backdrop-filter: blur(28px) saturate(160%);
   color: var(--dark);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.05),
+    0 16px 38px rgba(0, 0, 0, 0.14),
+    0 32px 64px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 }
 
-.ai-chat-widget__panel[hidden] {
-  display: none;
+// 只保留轻微染色层，blur 回到面板本体，避免 backdrop 取景失效。
+.ai-chat-widget__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(40, 75, 99, 0.10),
+    rgba(132, 165, 157, 0.08) 52%,
+    rgba(255, 255, 255, 0.04));
 }
 
+.ai-chat-widget__panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ai-chat-widget[data-state="open"] .ai-chat-widget__panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+// 浏览器不支持 backdrop-filter 时，至少保证界面清晰可读，而不是半透明糊掉前景。
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .ai-chat-widget__panel {
+    background: rgba(250, 248, 248, 0.96);
+  }
+}
+
+
+// ============================ Header 头部 ============================ //
 .ai-chat-widget__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem 1rem;
+  gap: 0.75rem;
+  padding: 0.95rem 1.1rem;
   border-bottom: 1px solid var(--lightgray);
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.42),
+      rgba(255, 255, 255, 0.18)),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--secondary) 9%, transparent),
+      transparent);
+}
+
+.ai-chat-widget__header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.ai-chat-widget__header-badge {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--secondary), var(--tertiary));
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--secondary) 35%, transparent);
+}
+
+.ai-chat-widget__header-badge svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ai-chat-widget__header-text {
+  min-width: 0;
 }
 
 .ai-chat-widget__header-title {
   font-size: 0.95rem;
   font-weight: 700;
+  color: var(--dark);
+  line-height: 1.2;
 }
 
 .ai-chat-widget__header-subtitle {
   margin-top: 0.2rem;
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--darkgray);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ai-chat-widget__close {
+  flex: none;
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: var(--darkgray);
-  font-size: 1.1rem;
+  transition: background 0.2s ease, transform 0.25s ease, color 0.2s ease;
+}
+
+.ai-chat-widget__close svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .ai-chat-widget__close:hover {
   background: var(--highlight);
+  color: var(--dark);
+  transform: rotate(90deg);
 }
 
+// ============================ Messages 消息区 ============================ //
 .ai-chat-widget__messages {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.18);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--gray) 70%, transparent) transparent;
+}
+
+.ai-chat-widget__messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ai-chat-widget__messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ai-chat-widget__messages::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gray) 70%, transparent);
+  border-radius: 999px;
+}
+
+.ai-chat-widget__messages::-webkit-scrollbar-thumb:hover {
+  background: var(--darkgray);
 }
 
 .ai-chat-widget__empty {
   margin: auto 0;
-  padding: 0.9rem 1rem;
-  border-radius: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.4rem 1rem;
+  text-align: center;
+  border-radius: 1rem;
   background: var(--highlight);
   color: var(--darkgray);
-  font-size: 0.9rem;
+}
+
+.ai-chat-widget__empty-icon {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--secondary);
+  background: color-mix(in srgb, var(--secondary) 12%, var(--light));
+}
+
+.ai-chat-widget__empty-icon svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ai-chat-widget__empty-text {
+  font-size: 0.85rem;
   line-height: 1.5;
 }
 
@@ -124,60 +337,100 @@
 
 .ai-chat-widget__message-card {
   max-width: 88%;
-  padding: 0.8rem 0.9rem;
-  border-radius: 1rem;
-  background: color-mix(in srgb, var(--secondary) 12%, var(--light));
+  padding: 0.7rem 0.95rem;
+  border-radius: 14px 14px 14px 4px;
+  background: color-mix(in srgb, var(--light) 85%, transparent);
+  border: 1px solid var(--lightgray);
   color: var(--dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+// 用户气泡：渐变实心 + 白字，右下尖角。
+.ai-chat-widget__message--user .ai-chat-widget__message-card {
+  border-radius: 14px 14px 4px 14px;
+  background: linear-gradient(135deg, var(--secondary), var(--tertiary));
+  border: none;
+  color: #fff;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--secondary) 28%, transparent);
+}
+
+// 用户气泡内 markdown 内容统一白字，覆盖链接/代码/引用等元素自带的深色。
+.ai-chat-widget__message--user .ai-chat-widget__message-content,
+.ai-chat-widget__message--user .ai-chat-widget__message-content a,
+.ai-chat-widget__message--user .ai-chat-widget__message-content code,
+.ai-chat-widget__message--user .ai-chat-widget__message-content pre,
+.ai-chat-widget__message--user .ai-chat-widget__message-content th,
+.ai-chat-widget__message--user .ai-chat-widget__message-content td,
+.ai-chat-widget__message--user .ai-chat-widget__message-content blockquote {
+  color: #fff;
+}
+
+.ai-chat-widget__message--user .ai-chat-widget__message-content a:hover {
+  opacity: 0.8;
+}
+
+// 用户气泡内行内代码/代码块用半透明白底，保持白字可读。
+.ai-chat-widget__message--user .ai-chat-widget__message-content code.ai-chat-md__inline-code,
+.ai-chat-widget__message--user .ai-chat-widget__message-content pre.ai-chat-md__code-block {
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .ai-chat-widget__message--assistant .ai-chat-widget__message-card {
-  background: color-mix(in srgb, var(--tertiary) 12%, var(--light));
+  border-radius: 14px 14px 14px 4px;
 }
 
 .ai-chat-widget__message--error .ai-chat-widget__message-card {
-  background: rgba(196, 68, 68, 0.12);
+  background: color-mix(in srgb, #c44444 14%, var(--light));
+  border-color: color-mix(in srgb, #c44444 30%, transparent);
   color: var(--dark);
 }
 
 .ai-chat-widget__message-role {
-  margin-bottom: 0.35rem;
-  font-size: 0.75rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--darkgray);
+  opacity: 0.8;
+}
+
+.ai-chat-widget__message--user .ai-chat-widget__message-role {
+  color: rgba(255, 255, 255, 0.88);
+  opacity: 1;
 }
 
 .ai-chat-widget__typing {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 0;
+  gap: 5px;
+  padding: 4px 0;
 }
 
 .ai-chat-widget__typing span {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--darkgray);
-  opacity: 0.4;
+  opacity: 0.35;
   animation: ai-chat-bounce 1.4s ease-in-out infinite;
 }
 
 .ai-chat-widget__typing span:nth-child(2) {
-  animation-delay: 0.16s;
+  animation-delay: 0.18s;
 }
 
 .ai-chat-widget__typing span:nth-child(3) {
-  animation-delay: 0.32s;
+  animation-delay: 0.36s;
 }
 
 @keyframes ai-chat-bounce {
   0%, 60%, 100% {
     transform: translateY(0);
-    opacity: 0.4;
+    opacity: 0.35;
   }
   30% {
-    transform: translateY(-6px);
-    opacity: 1;
+    transform: translateY(-5px);
+    opacity: 0.9;
   }
 }
 
@@ -275,14 +528,14 @@
     line-height: 1.45;
   }
   pre.ai-chat-md__code-block code {
-    font-family: var(--font-mono, ui-monospace, monospace);
+    font-family: var(--font-monospace, ui-monospace, monospace);
     background: none;
     padding: 0;
     border-radius: 0;
   }
 
   code.ai-chat-md__inline-code {
-    font-family: var(--font-mono, ui-monospace, monospace);
+    font-family: var(--font-monospace, ui-monospace, monospace);
     font-size: 0.85em;
     padding: 0.15em 0.35em;
     border-radius: 4px;
@@ -362,24 +615,29 @@
 .ai-chat-widget__source-link {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.55rem;
   border-radius: 999px;
   background: var(--highlight);
   color: var(--secondary);
   font-size: 0.76rem;
   text-decoration: none;
+  transition: background 0.2s ease;
 }
 
 .ai-chat-widget__source-link:hover {
-  text-decoration: underline;
+  background: color-mix(in srgb, var(--secondary) 14%, var(--highlight));
 }
 
+// ============================ Composer 输入区 ============================ //
 .ai-chat-widget__composer {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   padding: 0.9rem 1rem 1rem;
   border-top: 1px solid var(--lightgray);
+  background:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.18)),
+    linear-gradient(0deg, var(--highlight), transparent);
 }
 
 .ai-chat-widget__textarea {
@@ -388,15 +646,21 @@
   border: 1px solid var(--lightgray);
   border-radius: 0.9rem;
   padding: 0.7rem 0.9rem;
-  background: var(--light);
+  background: color-mix(in srgb, var(--light) 92%, transparent);
   color: var(--dark);
   font: inherit;
   font-size: 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-chat-widget__textarea::placeholder {
+  color: var(--gray);
 }
 
 .ai-chat-widget__textarea:focus {
-  outline: 2px solid color-mix(in srgb, var(--secondary) 35%, transparent);
-  outline-offset: 1px;
+  outline: none;
+  border-color: color-mix(in srgb, var(--secondary) 55%, var(--lightgray));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 15%, transparent);
 }
 
 .ai-chat-widget__footer {
@@ -408,26 +672,91 @@
 
 .ai-chat-widget__hint,
 .ai-chat-widget__status {
-  font-size: 0.76rem;
-  color: var(--darkgray);
+  font-size: 0.74rem;
+  color: var(--gray);
 }
 
 .ai-chat-widget__send {
-  padding: 0.6rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.1rem;
   border-radius: 999px;
-  background: var(--secondary);
-  color: var(--light);
+  color: #fff;
+  background: linear-gradient(135deg, var(--secondary), var(--tertiary));
   white-space: nowrap;
   font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--secondary) 30%, transparent);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ai-chat-widget__send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--secondary) 42%, transparent);
+}
+
+.ai-chat-widget__send:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .ai-chat-widget__send:disabled,
 .ai-chat-widget__textarea:disabled,
 .ai-chat-widget__launcher:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
+// ============================ 暗色模式适配 ============================ //
+:root[saved-theme="dark"] .ai-chat-widget__panel {
+  border-color: rgba(123, 151, 170, 0.24);
+  background: rgba(22, 22, 24, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    0 16px 40px rgba(0, 0, 0, 0.5),
+    0 32px 64px rgba(0, 0, 0, 0.6);
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__panel::before {
+  background: linear-gradient(135deg,
+    rgba(123, 151, 170, 0.12),
+    rgba(132, 165, 157, 0.08) 52%,
+    rgba(255, 255, 255, 0.015));
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, color-mix(in srgb, var(--secondary) 10%, transparent), transparent);
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__messages {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__composer {
+  background:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    linear-gradient(0deg, var(--highlight), transparent);
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__message-card {
+  background: color-mix(in srgb, var(--light) 50%, transparent);
+}
+
+:root[saved-theme="dark"] .ai-chat-widget__textarea {
+  background: color-mix(in srgb, var(--light) 55%, transparent);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[saved-theme="dark"] .ai-chat-widget__panel {
+    background: rgba(22, 22, 24, 0.96);
+  }
+}
+
+// ============================ 响应式 ============================ //
 @media (max-width: 600px) {
   .ai-chat-widget-root {
     right: 0.75rem;
@@ -435,12 +764,12 @@
   }
 
   .ai-chat-widget__panel {
-    width: min(calc(100vw - 1.5rem), 100%);
-    height: min(70vh, 520px);
+    width: calc(100vw - 1.5rem);
+    height: min(70vh, 540px);
   }
 
   .ai-chat-widget__message-card {
-    max-width: 100%;
+    max-width: 92%;
   }
 }
 
