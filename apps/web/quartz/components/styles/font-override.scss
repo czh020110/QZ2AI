@@ -1,9 +1,79 @@
 /* 替代 Quartz fonts 插件（已禁用）：提供页面字体 CSS 变量。
-   宋体优先链 → serif 最终回退；代码块保持等宽。 */
+   宋体优先链 -> serif 最终回退；代码块保持等宽。
+
+   另覆盖左侧导航栏(Explorer)与右侧目录栏(TOC)字体及 Explorer 视觉:
+   --explorerFont / --tocFont 由后台 /api/appearance 运行时注入,未配置时分别
+   回退 --headerFont / --bodyFont。Explorer 隐藏桌面"导航"标题栏,根层级(文件夹
+   与文件)靠字重与颜色比子层级更明显,字号沿用主题默认。本文件不在 @layer 内,
+   优先级高于 vendor 的 @layer quartz-base 样式。 */
 
 :root {
   --titleFont:  "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
   --headerFont: "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
   --bodyFont:   "Songti SC", "SimSun", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
   --codeFont:   "IBM Plex Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ===== 左侧导航栏(Explorer) ===== */
+
+// 隐藏桌面端标题栏(含"导航"字样与折叠箭头),根层级直接作为顶部。
+// 移动端汉堡按钮(.mobile-explorer)不受影响,仍可开关抽屉。
+.explorer button.desktop-explorer {
+  display: none;
+}
+// 标题栏隐藏后,清掉桌面端 .explorer-content 原本为标题留出的顶部间距,避免空行。
+// 移动端 .explorer-content 为绝对定位抽屉(margin-top 已为 0),不受影响。
+.explorer-content {
+  margin-top: 0;
+  font-family: var(--explorerFont, var(--headerFont));
+}
+
+// 桌面端:缩小搜索框与文件树之间的间距(sidebar 全局 gap 较大),并给滚动列表
+// 顶/底做渐隐遮罩,避免内容滚出时分界生硬。移动端为全屏抽屉,不在此处理。
+@media all and (min-width: 800px) {
+  // 负 margin 上移 explorer,缩小与上方 search 的视觉间距(仅本元素,不影响 sidebar 其它 gap)
+  .explorer {
+    margin-top: -0.5rem;
+  }
+  .explorer-content {
+    // 顶/底各 18px 渐隐:内容滚出时边缘淡出而非硬切
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+  }
+}
+
+// 根层级(explorer-ul 直接子级):文件夹与文件统一加粗加深,字号沿用主题默认。
+// link 模式下 button.folder-button 被替换为 a.folder-button,两种都覆盖。
+.explorer-content > .explorer-ul > li > .folder-container div > a,
+.explorer-content > .explorer-ul > li > .folder-container div > button span {
+  font-family: var(--explorerFont, var(--headerFont));
+  font-weight: 700;
+  color: var(--dark);
+  opacity: 1;
+}
+.explorer-content > .explorer-ul > li > a.nav-file-title {
+  font-family: var(--explorerFont, var(--headerFont));
+  font-weight: 700;
+  color: var(--dark);
+  opacity: 1;
+}
+
+// 子层级(folder-outer 内):弱于根层级
+.explorer-content .folder-outer .folder-container div > a,
+.explorer-content .folder-outer .folder-container div > button span {
+  font-family: var(--explorerFont, var(--headerFont));
+  font-weight: 600;
+  color: var(--secondary);
+}
+.explorer-content .folder-outer ul li > a.nav-file-title {
+  font-family: var(--explorerFont, var(--headerFont));
+  color: var(--dark);
+  opacity: 0.75;
+}
+
+/* ===== 右侧目录栏(TOC) ===== */
+
+// 字体族:未配置 --tocFont 时回退 --bodyFont;标题与内容均继承
+.toc {
+  font-family: var(--tocFont, var(--bodyFont));
 }

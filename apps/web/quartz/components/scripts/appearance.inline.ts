@@ -34,6 +34,8 @@ interface AppearanceConfig {
   title_text: string
   title_font_family: string
   font_family: string
+  explorer_font_family: string
+  toc_font_family: string
   favicon_url: string
   avatar_url: string
   avatar_shape: string
@@ -109,6 +111,50 @@ function applyTitleFont(ff: string) {
   if (!el) {
     const style = document.createElement("style")
     style.id = "appearance-title-font"
+    style.textContent = css
+    document.head.appendChild(style)
+  } else {
+    el.textContent = css
+  }
+}
+
+// 左侧导航栏(Explorer)字体:注入 --explorerFont,空串不注入(回退主题 --headerFont)。
+function applyExplorerFont(ff: string) {
+  const el = document.getElementById("appearance-explorer-font") as HTMLStyleElement | null
+  if (!ff || !ff.trim()) {
+    if (el) el.remove()
+    return
+  }
+  const safe = ff.replace(/[<>]/g, "")
+  const importRule = REMOTE_FONTS[ff.trim()]
+    ? `@import url("${REMOTE_FONTS[ff.trim()]}");`
+    : ""
+  const css = `${importRule}:root{--explorerFont:${safe};}`
+  if (!el) {
+    const style = document.createElement("style")
+    style.id = "appearance-explorer-font"
+    style.textContent = css
+    document.head.appendChild(style)
+  } else {
+    el.textContent = css
+  }
+}
+
+// 右侧目录栏(TOC)字体:注入 --tocFont,空串不注入(回退主题 --bodyFont)。
+function applyTocFont(ff: string) {
+  const el = document.getElementById("appearance-toc-font") as HTMLStyleElement | null
+  if (!ff || !ff.trim()) {
+    if (el) el.remove()
+    return
+  }
+  const safe = ff.replace(/[<>]/g, "")
+  const importRule = REMOTE_FONTS[ff.trim()]
+    ? `@import url("${REMOTE_FONTS[ff.trim()]}");`
+    : ""
+  const css = `${importRule}:root{--tocFont:${safe};}`
+  if (!el) {
+    const style = document.createElement("style")
+    style.id = "appearance-toc-font"
     style.textContent = css
     document.head.appendChild(style)
   } else {
@@ -269,6 +315,8 @@ function applyAll(cfg: AppearanceConfig | null) {
   if (!cfg) return
   applyFont(cfg.font_family)
   applyTitleFont(cfg.title_font_family)
+  applyExplorerFont(cfg.explorer_font_family)
+  applyTocFont(cfg.toc_font_family)
   applyTitleText(cfg.title_text)
   applyFavicon(cfg.favicon_url)
   applyAvatar(cfg)

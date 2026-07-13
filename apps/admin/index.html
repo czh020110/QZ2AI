@@ -3546,6 +3546,14 @@ const FONT_PRESETS = [
   { label: { 'en-US': 'Monospace', 'zh-CN': '等宽', 'ja-JP': '等幅' }, value: '"JetBrains Mono","Fira Code",monospace' },
 ];
 
+// 侧栏字体预设(左侧导航栏/右侧目录栏):在正文字体预设基础上追加手写体。
+// 手写体值与签名字体一致,跨平台 fallback;LXGW WenKai Screen 命中远程字体表会 @import 本地字体包。
+const HANDWRITING_PRESET = {
+  label: { 'en-US': 'Handwriting (macOS/Win)', 'zh-CN': '手写(macOS/Win)', 'ja-JP': '手書き(macOS/Win)' },
+  value: "'HanziPen SC','HanziPenSC-W3','HanziPenSC-W5','Kaiti SC','Ink Free',cursive",
+};
+const NAV_FONT_PRESETS = [...FONT_PRESETS, HANDWRITING_PRESET];
+
 // 签名字体预设:作用于站点标题(.page-title),独立于正文字体。
 // 默认值与后端 DEFAULT_TITLE_FONT 一致,跨平台 fallback。
 const TITLE_FONT_PRESETS = [
@@ -3573,6 +3581,8 @@ async function loadAppearance() {
       title_text: cfg.title_text ?? 'My Blog',
       title_font_family: cfg.title_font_family || '',
       font_family: cfg.font_family || '',
+      explorer_font_family: cfg.explorer_font_family || '',
+      toc_font_family: cfg.toc_font_family || '',
       favicon_url: cfg.favicon_url || '',
       avatar_url: cfg.avatar_url || '',
       avatar_shape: cfg.avatar_shape || 'circle',
@@ -3644,6 +3654,10 @@ function renderAppearance() {
     `<option value="${escAttr(p.value)}">${esc(p.label[adminLocale] || p.label['zh-CN'])}</option>`
   ).join('');
 
+  const navFontPresetOpts = NAV_FONT_PRESETS.map(p =>
+    `<option value="${escAttr(p.value)}">${esc(p.label[adminLocale] || p.label['zh-CN'])}</option>`
+  ).join('');
+
   content.innerHTML = `
     <div class="config-section">
       <div class="config-section-title">语言设置</div>
@@ -3699,6 +3713,34 @@ function renderAppearance() {
         <div class="config-item">
           <label class="config-label">自定义签名 font-family${helpIconTip('直接写 CSS font-family 值,留空使用默认跨平台手写体')}</label>
           <input class="config-input" type="text" id="appearanceTitleFontCustom" value="${escAttr(s.title_font_family)}" placeholder="留空=跟随默认" oninput="appearanceState.title_font_family = this.value">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">左侧导航栏字体</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">预设字体${helpIconTip('作用于左侧文件树导航栏,独立于正文字体;留空跟随主题默认')}</label>
+          <select class="config-input" id="appearanceExplorerFontPreset" style="cursor:pointer" onchange="onExplorerFontPresetChange(this.value)">${navFontPresetOpts}</select>
+        </div>
+        <div class="config-item">
+          <label class="config-label">自定义 font-family${helpIconTip('直接写 CSS font-family 值,留空=用主题默认字体')}</label>
+          <input class="config-input" type="text" id="appearanceExplorerFontCustom" value="${escAttr(s.explorer_font_family)}" placeholder="留空=跟随默认" oninput="appearanceState.explorer_font_family = this.value">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">右侧目录栏字体</div>
+      <div class="config-grid">
+        <div class="config-item">
+          <label class="config-label">预设字体${helpIconTip('作用于右侧文章目录大纲,独立于正文字体;留空跟随主题默认')}</label>
+          <select class="config-input" id="appearanceTocFontPreset" style="cursor:pointer" onchange="onTocFontPresetChange(this.value)">${navFontPresetOpts}</select>
+        </div>
+        <div class="config-item">
+          <label class="config-label">自定义 font-family${helpIconTip('直接写 CSS font-family 值,留空=用主题默认字体')}</label>
+          <input class="config-input" type="text" id="appearanceTocFontCustom" value="${escAttr(s.toc_font_family)}" placeholder="留空=跟随默认" oninput="appearanceState.toc_font_family = this.value">
         </div>
       </div>
     </div>
@@ -3804,6 +3846,18 @@ function renderAppearance() {
     const tmatch = TITLE_FONT_PRESETS.find(p => p.value === s.title_font_family);
     titlePresetSel.value = tmatch ? tmatch.value : '';
   }
+  // 同步左侧导航栏字体预设下拉选中态
+  const explorerPresetSel = document.getElementById('appearanceExplorerFontPreset');
+  if (explorerPresetSel) {
+    const ematch = NAV_FONT_PRESETS.find(p => p.value === s.explorer_font_family);
+    explorerPresetSel.value = ematch ? ematch.value : '';
+  }
+  // 同步右侧目录栏字体预设下拉选中态
+  const tocPresetSel = document.getElementById('appearanceTocFontPreset');
+  if (tocPresetSel) {
+    const omatch = NAV_FONT_PRESETS.find(p => p.value === s.toc_font_family);
+    tocPresetSel.value = omatch ? omatch.value : '';
+  }
 
   renderSocialList();
   renderSocialPreview();
@@ -3821,6 +3875,20 @@ function onFontPresetChange(value) {
   if (!appearanceState) return;
   appearanceState.font_family = value;
   const input = document.getElementById('appearanceFontCustom');
+  if (input) input.value = value;
+}
+
+function onExplorerFontPresetChange(value) {
+  if (!appearanceState) return;
+  appearanceState.explorer_font_family = value;
+  const input = document.getElementById('appearanceExplorerFontCustom');
+  if (input) input.value = value;
+}
+
+function onTocFontPresetChange(value) {
+  if (!appearanceState) return;
+  appearanceState.toc_font_family = value;
+  const input = document.getElementById('appearanceTocFontCustom');
   if (input) input.value = value;
 }
 
