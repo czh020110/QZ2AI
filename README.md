@@ -4,10 +4,10 @@
 
 > 工作流：Obsidian 写作 → 远程同步（COS / GitHub）→ Quartz 静态博客 + AI 问答
 
+![alt text](assets/image-1.png)
 ---
 
 ## 功能特性
-
 - **静态博客**：Quartz 构建，原生支持 Obsidian 的 `[[双链]]`、标签、callout、嵌入等
 - **AI 问答**：博客右下角浮窗，基于 RAG（LlamaIndex + Chroma + Reranker）回答与笔记内容相关的问题，SSE 流式输出
 - **远程笔记同步**：支持腾讯云 COS 或 GitHub 仓库作为只读笔记源，自动拉取（webhook 或定时）
@@ -16,6 +16,9 @@
 - **多语言**：博客与管理后台支持 en-US / zh-CN / ja-JP 切换
 - **外观定制**：背景颜色预设、导航栏与目录栏字体设置
 - **反馈与通知**：用户反馈收集，新反馈或同步失败时可选邮件提醒
+![alt text](assets/image-4.png)
+![alt text](assets/image-2.png)
+![alt text](assets/image-3.png)
 
 ---
 
